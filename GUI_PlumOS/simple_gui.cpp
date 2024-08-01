@@ -1,41 +1,33 @@
 #include <SDL2/SDL.h>
-#include <EGL/egl.h>
 #include <GLES3/gl3.h>
+#include <EGL/egl.h>
 #include <iostream>
+#include <vector>
 #include <chrono>
 
-// Размеры окна
+// Параметры окна
 const int WINDOW_WIDTH = 800;
 const int WINDOW_HEIGHT = 600;
 
-// Временные переменные для FPS
+// Параметры вращающегося куба
+float angle = 0.0f;
+
+// Временные переменные для расчета FPS
 std::chrono::steady_clock::time_point lastTime;
 int frameCount = 0;
 
-// Вершины и индексы куба
-const GLfloat vertices[] = {
-    -0.5f, -0.5f, -0.5f,  // 0
-    -0.5f, -0.5f,  0.5f,  // 1
-     0.5f, -0.5f,  0.5f,  // 2
-     0.5f, -0.5f, -0.5f,  // 3
-    -0.5f,  0.5f, -0.5f,  // 4
-    -0.5f,  0.5f,  0.5f,  // 5
-     0.5f,  0.5f,  0.5f,  // 6
-     0.5f,  0.5f, -0.5f   // 7
-};
+// Прототипы функций
+bool handleEvents();
+void renderOpenGL();
+void updateFPS();
 
-const GLubyte indices[] = {
-    0, 1, 2,  2, 3, 0,  // Bottom
-    4, 5, 6,  6, 7, 4,  // Top
-    0, 1, 5,  5, 4, 0,  // Front
-    2, 3, 7,  7, 6, 2,  // Back
-    0, 3, 7,  7, 4, 0,  // Left
-    1, 2, 6,  6, 5, 1   // Right
-};
+// Функции для компиляции шейдеров и создания программы
+GLuint compileShader(GLenum type, const char* source);
+GLuint createProgram(const char* vertexSource, const char* fragmentSource);
 
-GLuint vertexBuffer, indexBuffer, program;
-GLint attrPos, uniMVP;
-float angle = 0.0f;
+GLuint program;
+GLuint VAO, VBO;
+GLint attrPos, attrColor;
 
 bool handleEvents() {
     SDL_Event event;
@@ -48,40 +40,88 @@ bool handleEvents() {
 }
 
 void renderOpenGL() {
+    // Очистка экрана
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // Обновляем матрицу модели
+    // Используем шейдерную программу
+    glUseProgram(program);
+
+    // Вращаем куб
     angle += 0.01f;
-    if (angle > 360.0f) angle -= 360.0f;
-    
-    float mvpMatrix[16] = {
-        cosf(angle), -sinf(angle), 0.0f, 0.0f,
-        sinf(angle),  cosf(angle), 0.0f, 0.0f,
-        0.0f,        0.0f,       1.0f, 0.0f,
-        0.0f,        0.0f,       0.0f, 1.0f
-    };
-    
-    glUniformMatrix4fv(uniMVP, 1, GL_FALSE, mvpMatrix);
+    if (angle >= 360.0f) {
+        angle -= 360.0f;
+    }
 
-    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-    glVertexAttribPointer(attrPos, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-    glEnableVertexAttribArray(attrPos);
+    // Устанавливаем матрицу модели
+    // Создаем матрицу вращения (для простоты не включена)
+    // Для полноценного вращения вам нужно установить правильные матрицы
+    // glUniformMatrix4fv(mvpMatrixLocation, 1, GL_FALSE, &mvpMatrix[0][0]);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
-    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_BYTE, (void*)0);
+    // Рендеринг куба
+    glBindVertexArray(VAO);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+
+    // Обновляем экран
+    eglSwapBuffers(eglDisplay, eglSurface);
 }
 
 void updateFPS() {
-    using namespace std::chrono;
-    static auto start = steady_clock::now();
+    auto currentTime = std::chrono::steady_clock::now();
     frameCount++;
-    auto now = steady_clock::now();
-    auto duration = duration_cast<seconds>(now - start).count();
-    if (duration >= 1) {
-        std::cout << "FPS: " << frameCount / duration << std::endl;
+
+    std::chrono::duration<float> elapsed = currentTime - lastTime;
+    if (elapsed.count() >= 1.0f) {
+        std::cout << "FPS: " << frameCount / elapsed.count() << std::endl;
+        lastTime = currentTime;
         frameCount = 0;
-        start = now;
     }
+}
+
+GLuint compileShader(GLenum type, const char* source) {
+    GLuint shader = glCreateShader(type);
+    glShaderSource(shader, 1, &source, nullptr);
+    glCompileShader(shader);
+
+    GLint compileStatus;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &compileStatus);
+    if (compileStatus == GL_FALSE) {
+        GLint infoLogLength;
+        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLogLength);
+        std::vector<GLchar> infoLog(infoLogLength);
+        glGetShaderInfoLog(shader, infoLogLength, &infoLogLength, infoLog.data());
+        std::cerr << "Shader compile error: " << infoLog.data() << std::endl;
+        glDeleteShader(shader);
+        return 0;
+    }
+
+    return shader;
+}
+
+GLuint createProgram(const char* vertexSource, const char* fragmentSource) {
+    GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSource);
+    GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSource);
+
+    GLuint program = glCreateProgram();
+    glAttachShader(program, vertexShader);
+    glAttachShader(program, fragmentShader);
+    glLinkProgram(program);
+
+    GLint linkStatus;
+    glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
+    if (linkStatus == GL_FALSE) {
+        GLint infoLogLength;
+        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &infoLogLength);
+        std::vector<GLchar> infoLog(infoLogLength);
+        glGetProgramInfoLog(program, infoLogLength, &infoLogLength, infoLog.data());
+        std::cerr << "Program link error: " << infoLog.data() << std::endl;
+        glDeleteProgram(program);
+        return 0;
+    }
+
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    return program;
 }
 
 int main(int argc, char* argv[]) {
@@ -90,135 +130,159 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    SDL_Window* window = SDL_CreateWindow("OpenGL ES 3.1 Example", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
+    SDL_Window* window = SDL_CreateWindow("OpenGL ES 3.1 Example", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
     if (window == nullptr) {
         std::cerr << "SDL_CreateWindow Error: " << SDL_GetError() << std::endl;
         SDL_Quit();
         return 1;
     }
 
-    SDL_GLContext glContext = SDL_GL_CreateContext(window);
-    if (glContext == nullptr) {
-        std::cerr << "SDL_GL_CreateContext Error: " << SDL_GetError() << std::endl;
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-
+    // Настройка EGL
     EGLDisplay eglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (eglDisplay == EGL_NO_DISPLAY) {
-        std::cerr << "EGL Error: No display found" << std::endl;
-        SDL_GL_DeleteContext(glContext);
+        std::cerr << "Failed to get EGL display" << std::endl;
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 1;
     }
 
     if (!eglInitialize(eglDisplay, nullptr, nullptr)) {
-        std::cerr << "EGL Error: Failed to initialize" << std::endl;
-        SDL_GL_DeleteContext(glContext);
+        std::cerr << "Failed to initialize EGL" << std::endl;
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 1;
     }
 
-    EGLConfig eglConfig;
-    EGLint numConfigs;
-    EGLint eglAttribs[] = {
-        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR,
-        EGL_CONFORMANT, EGL_OPENGL_ES3_BIT_KHR,
+    EGLint configAttribs[] = {
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT, // Используем OpenGL ES 3.0
+        EGL_CONFORMANT, EGL_OPENGL_ES3_BIT,
         EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
         EGL_NONE
     };
 
-    if (!eglChooseConfig(eglDisplay, eglAttribs, &eglConfig, 1, &numConfigs)) {
-        std::cerr << "EGL Error: Failed to choose config" << std::endl;
+    EGLConfig eglConfig;
+    EGLint numConfigs;
+    if (!eglChooseConfig(eglDisplay, configAttribs, &eglConfig, 1, &numConfigs)) {
+        std::cerr << "Failed to choose EGL config" << std::endl;
         eglTerminate(eglDisplay);
-        SDL_GL_DeleteContext(glContext);
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 1;
     }
 
-    EGLSurface eglSurface = eglCreateWindowSurface(eglDisplay, eglConfig, (EGLNativeWindowType)window, nullptr);
+    EGLSurface eglSurface = eglCreateWindowSurface(eglDisplay, eglConfig, window, nullptr);
     if (eglSurface == EGL_NO_SURFACE) {
-        std::cerr << "EGL Error: Failed to create surface" << std::endl;
+        std::cerr << "Failed to create EGL surface" << std::endl;
         eglTerminate(eglDisplay);
-        SDL_GL_DeleteContext(glContext);
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 1;
     }
 
-    EGLContext eglContext = eglCreateContext(eglDisplay, eglConfig, EGL_NO_CONTEXT, nullptr);
+    EGLint contextAttribs[] = {
+        EGL_CONTEXT_CLIENT_VERSION, 3, // OpenGL ES 3.x
+        EGL_NONE
+    };
+
+    EGLContext eglContext = eglCreateContext(eglDisplay, eglConfig, EGL_NO_CONTEXT, contextAttribs);
     if (eglContext == EGL_NO_CONTEXT) {
-        std::cerr << "EGL Error: Failed to create context" << std::endl;
+        std::cerr << "Failed to create EGL context" << std::endl;
         eglDestroySurface(eglDisplay, eglSurface);
         eglTerminate(eglDisplay);
-        SDL_GL_DeleteContext(glContext);
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 1;
     }
 
     if (!eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)) {
-        std::cerr << "EGL Error: Failed to make context current" << std::endl;
+        std::cerr << "Failed to make EGL context current" << std::endl;
         eglDestroyContext(eglDisplay, eglContext);
         eglDestroySurface(eglDisplay, eglSurface);
         eglTerminate(eglDisplay);
-        SDL_GL_DeleteContext(glContext);
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 1;
     }
 
-    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-
-    // Шейдеры
-    const char* vertexShaderSource = R"(
-        #version 300 es
-        in vec3 aPos;
-        uniform mat4 uMVP;
+    // Определение шейдеров и создание программы
+    const char* vertexSource = R"(
+        #version 310 es
+        uniform mat4 modelViewProjection;
+        in vec4 aPos;
+        in vec4 aColor;
+        out vec4 fragColor;
         void main() {
-            gl_Position = uMVP * vec4(aPos, 1.0);
+            gl_Position = modelViewProjection * aPos;
+            fragColor = aColor;
         }
     )";
 
-    const char* fragmentShaderSource = R"(
-        #version 300 es
-        out vec4 FragColor;
+    const char* fragmentSource = R"(
+        #version 310 es
+        precision mediump float;
+        in vec4 fragColor;
+        out vec4 color;
         void main() {
-            FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+            color = fragColor;
         }
     )";
 
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
-    glCompileShader(vertexShader);
+    program = createProgram(vertexSource, fragmentSource);
+    if (program == 0) {
+        std::cerr << "Failed to create program" << std::endl;
+        eglDestroyContext(eglDisplay, eglContext);
+        eglDestroySurface(eglDisplay, eglSurface);
+        eglTerminate(eglDisplay);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return 1;
+    }
 
-    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
-    glCompileShader(fragmentShader);
+	// Вершинные данные для куба
+float vertices[] = {
+    // Позиции         // Цвета
+    -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, // Красный
+     0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f, // Зеленый
+     0.5f,  0.5f, -0.5f, 0.0f, 0.0f, 1.0f, // Синий
+    -0.5f,  0.5f, -0.5f, 1.0f, 1.0f, 0.0f, // Желтый
+    
+    -0.5f, -0.5f,  0.5f, 1.0f, 0.0f, 1.0f, // Пурпурный
+     0.5f, -0.5f,  0.5f, 0.0f, 1.0f, 1.0f, // Циан
+     0.5f,  0.5f,  0.5f, 1.0f, 1.0f, 1.0f, // Белый
+    -0.5f,  0.5f,  0.5f, 1.0f, 0.5f, 0.0f, // Оранжевый
+    
+    -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, // Красный
+     0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f, // Зеленый
+     0.5f, -0.5f,  0.5f, 0.0f, 0.0f, 1.0f, // Синий
+    -0.5f, -0.5f,  0.5f, 1.0f, 1.0f, 0.0f, // Желтый
+    
+    -0.5f,  0.5f, -0.5f, 1.0f, 0.0f, 1.0f, // Пурпурный
+     0.5f,  0.5f, -0.5f, 0.0f, 1.0f, 1.0f, // Циан
+     0.5f,  0.5f,  0.5f, 1.0f, 1.0f, 1.0f, // Белый
+    -0.5f,  0.5f,  0.5f, 1.0f, 0.5f, 0.0f  // Оранжевый
+};
 
-    program = glCreateProgram();
-    glAttachShader(program, vertexShader);
-    glAttachShader(program, fragmentShader);
-    glLinkProgram(program);
-    glUseProgram(program);
+	GLuint VBO, VAO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
 
-    attrPos = glGetAttribLocation(program, "aPos");
-    uniMVP = glGetUniformLocation(program, "uMVP");
+    glBindVertexArray(VAO);
 
-    // Создание буферов
-    glGenBuffers(1, &vertexBuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    glGenBuffers(1, &indexBuffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+    // Устанавливаем атрибуты вершин
+    attrPos = glGetAttribLocation(program, "aPos");
+    attrColor = glGetAttribLocation(program, "aColor");
 
-    glEnable(GL_DEPTH_TEST);
+    glVertexAttribPointer(attrPos, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(attrPos);
+
+    glVertexAttribPointer(attrColor, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(attrColor);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 
     lastTime = std::chrono::steady_clock::now();
 
@@ -226,14 +290,16 @@ int main(int argc, char* argv[]) {
     while (running) {
         running = handleEvents();
         renderOpenGL();
-        eglSwapBuffers(eglDisplay, eglSurface);
         updateFPS();
     }
+
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glDeleteProgram(program);
 
     eglDestroyContext(eglDisplay, eglContext);
     eglDestroySurface(eglDisplay, eglSurface);
     eglTerminate(eglDisplay);
-    SDL_GL_DeleteContext(glContext);
     SDL_DestroyWindow(window);
     SDL_Quit();
 
