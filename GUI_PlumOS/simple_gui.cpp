@@ -5,63 +5,96 @@
 #include <vector>
 #include <chrono>
 
-// Параметры окна
+// Константы и переменные
 const int WINDOW_WIDTH = 800;
 const int WINDOW_HEIGHT = 600;
 
-// Параметры вращающегося куба
-float angle = 0.0f;
-
-// Временные переменные для расчета FPS
-std::chrono::steady_clock::time_point lastTime;
-int frameCount = 0;
-
-// Прототипы функций
-bool handleEvents();
-void renderOpenGL();
-void updateFPS();
-
-// Функции для компиляции шейдеров и создания программы
-GLuint compileShader(GLenum type, const char* source);
-GLuint createProgram(const char* vertexSource, const char* fragmentSource);
+EGLDisplay eglDisplay;
+EGLSurface eglSurface;
+EGLContext eglContext;
+EGLConfig eglConfig;
 
 GLuint program;
 GLuint VAO, VBO;
-GLint attrPos, attrColor;
+GLuint attrPos, attrColor;
+float angle = 0.0f;
+std::chrono::steady_clock::time_point lastTime;
+int frameCount = 0;
 
-bool handleEvents() {
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_QUIT) {
-            return false;
-        }
+bool initializeEGL(SDL_Window* window) {
+    eglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    if (eglDisplay == EGL_NO_DISPLAY) {
+        std::cerr << "Failed to get EGL display" << std::endl;
+        return false;
     }
+
+    if (!eglInitialize(eglDisplay, nullptr, nullptr)) {
+        std::cerr << "Failed to initialize EGL" << std::endl;
+        return false;
+    }
+
+    EGLint configAttribs[] = {
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR,
+        EGL_CONFORMANT, EGL_OPENGL_ES3_BIT_KHR,
+        EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+        EGL_BLUE_SIZE, 8,
+        EGL_GREEN_SIZE, 8,
+        EGL_RED_SIZE, 8,
+        EGL_DEPTH_SIZE, 24,
+        EGL_NONE
+    };
+
+    EGLint numConfigs;
+    if (!eglChooseConfig(eglDisplay, configAttribs, &eglConfig, 1, &numConfigs)) {
+        std::cerr << "Failed to choose EGL config" << std::endl;
+        return false;
+    }
+
+    EGLint contextAttribs[] = {
+        EGL_CONTEXT_CLIENT_VERSION, 3,
+        EGL_NONE
+    };
+
+    eglContext = eglCreateContext(eglDisplay, eglConfig, EGL_NO_CONTEXT, contextAttribs);
+    if (eglContext == EGL_NO_CONTEXT) {
+        std::cerr << "Failed to create EGL context" << std::endl;
+        return false;
+    }
+
+    SDL_SysWMinfo info;
+    SDL_VERSION(&info.version);
+    SDL_GetWindowWMInfo(window, &info);
+    EGLNativeWindowType nativeWindow = info.info.x11.window;
+
+    eglSurface = eglCreateWindowSurface(eglDisplay, eglConfig, nativeWindow, nullptr);
+    if (eglSurface == EGL_NO_SURFACE) {
+        std::cerr << "Failed to create EGL surface" << std::endl;
+        return false;
+    }
+
+    if (!eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)) {
+        std::cerr << "Failed to make EGL context current" << std::endl;
+        return false;
+    }
+
     return true;
 }
 
 void renderOpenGL() {
-    // Очистка экрана
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // Используем шейдерную программу
     glUseProgram(program);
 
-    // Вращаем куб
     angle += 0.01f;
     if (angle >= 360.0f) {
         angle -= 360.0f;
     }
 
-    // Устанавливаем матрицу модели
-    // Создаем матрицу вращения (для простоты не включена)
-    // Для полноценного вращения вам нужно установить правильные матрицы
-    // glUniformMatrix4fv(mvpMatrixLocation, 1, GL_FALSE, &mvpMatrix[0][0]);
+    // Вращение и трансформация куба (например, с помощью матрицы модели)
 
-    // Рендеринг куба
     glBindVertexArray(VAO);
     glDrawArrays(GL_TRIANGLES, 0, 36);
 
-    // Обновляем экран
     eglSwapBuffers(eglDisplay, eglSurface);
 }
 
@@ -124,6 +157,16 @@ GLuint createProgram(const char* vertexSource, const char* fragmentSource) {
     return program;
 }
 
+bool handleEvents() {
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) {
+            return false;
+        }
+    }
+    return true;
+}
+
 int main(int argc, char* argv[]) {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         std::cerr << "SDL_Init Error: " << SDL_GetError() << std::endl;
@@ -137,68 +180,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Настройка EGL
-    EGLDisplay eglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-    if (eglDisplay == EGL_NO_DISPLAY) {
-        std::cerr << "Failed to get EGL display" << std::endl;
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-
-    if (!eglInitialize(eglDisplay, nullptr, nullptr)) {
-        std::cerr << "Failed to initialize EGL" << std::endl;
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-
-    EGLint configAttribs[] = {
-        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT, // Используем OpenGL ES 3.0
-        EGL_CONFORMANT, EGL_OPENGL_ES3_BIT,
-        EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-        EGL_NONE
-    };
-
-    EGLConfig eglConfig;
-    EGLint numConfigs;
-    if (!eglChooseConfig(eglDisplay, configAttribs, &eglConfig, 1, &numConfigs)) {
-        std::cerr << "Failed to choose EGL config" << std::endl;
-        eglTerminate(eglDisplay);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-
-    EGLSurface eglSurface = eglCreateWindowSurface(eglDisplay, eglConfig, window, nullptr);
-    if (eglSurface == EGL_NO_SURFACE) {
-        std::cerr << "Failed to create EGL surface" << std::endl;
-        eglTerminate(eglDisplay);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-
-    EGLint contextAttribs[] = {
-        EGL_CONTEXT_CLIENT_VERSION, 3, // OpenGL ES 3.x
-        EGL_NONE
-    };
-
-    EGLContext eglContext = eglCreateContext(eglDisplay, eglConfig, EGL_NO_CONTEXT, contextAttribs);
-    if (eglContext == EGL_NO_CONTEXT) {
-        std::cerr << "Failed to create EGL context" << std::endl;
-        eglDestroySurface(eglDisplay, eglSurface);
-        eglTerminate(eglDisplay);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-
-    if (!eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)) {
-        std::cerr << "Failed to make EGL context current" << std::endl;
-        eglDestroyContext(eglDisplay, eglContext);
-        eglDestroySurface(eglDisplay, eglSurface);
-        eglTerminate(eglDisplay);
+    if (!initializeEGL(window)) {
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 1;
@@ -229,7 +211,6 @@ int main(int argc, char* argv[]) {
 
     program = createProgram(vertexSource, fragmentSource);
     if (program == 0) {
-        std::cerr << "Failed to create program" << std::endl;
         eglDestroyContext(eglDisplay, eglContext);
         eglDestroySurface(eglDisplay, eglSurface);
         eglTerminate(eglDisplay);
@@ -262,8 +243,7 @@ float vertices[] = {
     -0.5f,  0.5f,  0.5f, 1.0f, 0.5f, 0.0f  // Оранжевый
 };
 
-	GLuint VBO, VAO;
-    glGenVertexArrays(1, &VAO);
+	glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
 
     glBindVertexArray(VAO);
