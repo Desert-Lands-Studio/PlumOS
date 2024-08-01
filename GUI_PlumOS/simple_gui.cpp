@@ -92,7 +92,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Создание окна
-    SDL_Window* window = SDL_CreateWindow("Пример OpenGL и Vulkan", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_VULKAN);
+    SDL_Window* window = SDL_CreateWindow("OpenGL Example", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_OPENGL);
     if (window == nullptr) {
         std::cerr << "Ошибка SDL_CreateWindow: " << SDL_GetError() << std::endl;
         SDL_Quit();
