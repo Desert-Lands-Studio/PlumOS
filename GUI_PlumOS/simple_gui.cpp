@@ -1,6 +1,8 @@
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_syswm.h>
 #include <GLES3/gl3.h>
 #include <EGL/egl.h>
+#include <EGL/eglext.h>
 #include <iostream>
 #include <vector>
 #include <chrono>
@@ -34,8 +36,8 @@ bool initializeEGL(SDL_Window* window) {
     }
 
     EGLint configAttribs[] = {
-        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR,
-        EGL_CONFORMANT, EGL_OPENGL_ES3_BIT_KHR,
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,  // Используем EGL_OPENGL_ES2_BIT вместо EGL_OPENGL_ES3_BIT_KHR
+        EGL_CONFORMANT, EGL_OPENGL_ES2_BIT,       // Используем EGL_OPENGL_ES2_BIT вместо EGL_OPENGL_ES3_BIT_KHR
         EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
         EGL_BLUE_SIZE, 8,
         EGL_GREEN_SIZE, 8,
@@ -64,7 +66,16 @@ bool initializeEGL(SDL_Window* window) {
     SDL_SysWMinfo info;
     SDL_VERSION(&info.version);
     SDL_GetWindowWMInfo(window, &info);
+#if defined(SDL_VIDEO_DRIVER_X11)
     EGLNativeWindowType nativeWindow = info.info.x11.window;
+#elif defined(SDL_VIDEO_DRIVER_WINDOWS)
+    EGLNativeWindowType nativeWindow = info.info.win.window;
+#elif defined(SDL_VIDEO_DRIVER_WAYLAND)
+    EGLNativeWindowType nativeWindow = info.info.wl.surface;
+#else
+    std::cerr << "Unsupported SDL window manager" << std::endl;
+    return false;
+#endif
 
     eglSurface = eglCreateWindowSurface(eglDisplay, eglConfig, nativeWindow, nullptr);
     if (eglSurface == EGL_NO_SURFACE) {
@@ -243,7 +254,7 @@ float vertices[] = {
     -0.5f,  0.5f,  0.5f, 1.0f, 0.5f, 0.0f  // Оранжевый
 };
 
-	glGenVertexArrays(1, &VAO);
+	 glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
 
     glBindVertexArray(VAO);
