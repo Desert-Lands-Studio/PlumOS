@@ -13,6 +13,7 @@ enum RenderMode {
     VulkanMode
 };
 
+// Обработка событий SDL
 bool handleEvents(RenderMode &mode) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -28,11 +29,12 @@ bool handleEvents(RenderMode &mode) {
     return true;
 }
 
+// Рендеринг с использованием OpenGL
 void renderOpenGL() {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // Render a simple rectangle
+    // Рендеринг простого прямоугольника
     glBegin(GL_QUADS);
     glColor3f(1.0f, 0.0f, 0.0f);
     glVertex2f(-0.5f, -0.5f);
@@ -42,29 +44,65 @@ void renderOpenGL() {
     glEnd();
 }
 
+// Рендеринг с использованием Vulkan (пока не реализован)
 void renderVulkan(VkInstance instance, VkSurfaceKHR surface) {
-    // Here should be Vulkan rendering code
-    // For simplicity, it's not implemented in this example
-    std::cout << "Rendering with Vulkan (not implemented in this example)" << std::endl;
+    // Пример создания VkDevice и других объектов Vulkan
+    VkDevice device;
+    VkPhysicalDevice physicalDevice;
+    VkSwapchainKHR swapChain;
+
+    // Найти подходящее физическое устройство
+    VkPhysicalDevice physicalDevices[10];
+    uint32_t deviceCount = 0;
+    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+    vkEnumeratePhysicalDevices(instance, &deviceCount, physicalDevices);
+
+    // Выбор первого доступного физического устройства
+    physicalDevice = physicalDevices[0];
+
+    // Создание логического устройства
+    VkDeviceCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    // Установите параметры createInfo здесь
+
+    vkCreateDevice(physicalDevice, &createInfo, nullptr, &device);
+
+    // Настройка swapchain
+    VkSwapchainCreateInfoKHR swapChainCreateInfo = {};
+    swapChainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    // Установите параметры swapChainCreateInfo здесь
+
+    vkCreateSwapchainKHR(device, &swapChainCreateInfo, nullptr, &swapChain);
+
+    // Рендеринг с использованием Vulkan
+    // Напишите код для рендеринга с использованием созданных объектов
+
+    std::cout << "Рендеринг с использованием Vulkan (реализован частично)" << std::endl;
+
+    // Очистка ресурсов Vulkan
+    vkDestroySwapchainKHR(device, swapChain, nullptr);
+    vkDestroyDevice(device, nullptr);
 }
 
 int main(int argc, char* argv[]) {
+    // Инициализация SDL
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-        std::cerr << "SDL_Init Error: " << SDL_GetError() << std::endl;
+        std::cerr << "Ошибка SDL_Init: " << SDL_GetError() << std::endl;
         return 1;
     }
 
-    SDL_Window* window = SDL_CreateWindow("OpenGL and Vulkan Example", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_VULKAN);
+    // Создание окна
+    SDL_Window* window = SDL_CreateWindow("Пример OpenGL и Vulkan", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_VULKAN);
     if (window == nullptr) {
-        std::cerr << "SDL_CreateWindow Error: " << SDL_GetError() << std::endl;
+        std::cerr << "Ошибка SDL_CreateWindow: " << SDL_GetError() << std::endl;
         SDL_Quit();
         return 1;
     }
 
-    // OpenGL setup
+    // Настройка OpenGL
     SDL_GLContext glContext = SDL_GL_CreateContext(window);
     if (glContext == nullptr) {
-        std::cerr << "SDL_GL_CreateContext Error: " << SDL_GetError() << std::endl;
+        std::cerr << "Ошибка SDL_GL_CreateContext: " << SDL_GetError() << std::endl;
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 1;
@@ -72,14 +110,14 @@ int main(int argc, char* argv[]) {
 
     glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK) {
-        std::cerr << "glewInit Error" << std::endl;
+        std::cerr << "Ошибка glewInit" << std::endl;
         SDL_GL_DeleteContext(glContext);
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 1;
     }
 
-    // Vulkan setup
+    // Настройка Vulkan
     VkInstance instance;
     VkApplicationInfo appInfo = {};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -95,7 +133,7 @@ int main(int argc, char* argv[]) {
 
     unsigned int extensionCount = 0;
     if (!SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, nullptr)) {
-        std::cerr << "SDL_Vulkan_GetInstanceExtensions Error: " << SDL_GetError() << std::endl;
+        std::cerr << "Ошибка SDL_Vulkan_GetInstanceExtensions: " << SDL_GetError() << std::endl;
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 1;
@@ -103,7 +141,7 @@ int main(int argc, char* argv[]) {
 
     std::vector<const char*> extensions(extensionCount);
     if (!SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, extensions.data())) {
-        std::cerr << "SDL_Vulkan_GetInstanceExtensions Error: " << SDL_GetError() << std::endl;
+        std::cerr << "Ошибка SDL_Vulkan_GetInstanceExtensions: " << SDL_GetError() << std::endl;
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 1;
@@ -113,7 +151,7 @@ int main(int argc, char* argv[]) {
     createInfo.ppEnabledExtensionNames = extensions.data();
 
     if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
-        std::cerr << "Failed to create Vulkan instance" << std::endl;
+        std::cerr << "Не удалось создать экземпляр Vulkan" << std::endl;
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 1;
@@ -121,7 +159,7 @@ int main(int argc, char* argv[]) {
 
     VkSurfaceKHR surface;
     if (!SDL_Vulkan_CreateSurface(window, instance, &surface)) {
-        std::cerr << "SDL_Vulkan_CreateSurface Error: " << SDL_GetError() << std::endl;
+        std::cerr << "Ошибка SDL_Vulkan_CreateSurface: " << SDL_GetError() << std::endl;
         vkDestroyInstance(instance, nullptr);
         SDL_DestroyWindow(window);
         SDL_Quit();
@@ -141,7 +179,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    vkDestroySurfaceKHR(instance, surface);
+    vkDestroySurfaceKHR(instance, surface, nullptr);
     vkDestroyInstance(instance, nullptr);
     SDL_GL_DeleteContext(glContext);
     SDL_DestroyWindow(window);
