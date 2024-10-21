@@ -1,0 +1,10 @@
+^D:\GITHUB\PLUMOS\GUI_PLUMOS\CMAKELISTS.TXT
+setlocal
+C:\application\cmake\bin\cmake.exe -SD:/Github/PlumOS/GUI_PlumOS "-BD:/Github/PlumOS/GUI_PlumOS/out/build/Clang 19.1.0 x86_64-pc-windows-msvc" --check-stamp-file "D:/Github/PlumOS/GUI_PlumOS/out/build/Clang 19.1.0 x86_64-pc-windows-msvc/CMakeFiles/generate.stamp"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

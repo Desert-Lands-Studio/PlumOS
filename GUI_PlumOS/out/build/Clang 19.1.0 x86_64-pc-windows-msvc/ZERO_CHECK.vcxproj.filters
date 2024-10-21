@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="D:\Github\PlumOS\GUI_PlumOS\out\build\Clang 19.1.0 x86_64-pc-windows-msvc\CMakeFiles\c165f45ac9dd59c08ef36c0f84a6347c\generate.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{6AAF2577-ED72-35BA-90C8-387911A80BBB}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

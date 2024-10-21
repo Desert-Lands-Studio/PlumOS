@@ -1,0 +1,25 @@
+# CMake generation dependency list for this directory.
+C:/application/cmake/share/cmake-3.30/Modules/CMakeCInformation.cmake
+C:/application/cmake/share/cmake-3.30/Modules/CMakeCXXInformation.cmake
+C:/application/cmake/share/cmake-3.30/Modules/CMakeCommonLanguageInclude.cmake
+C:/application/cmake/share/cmake-3.30/Modules/CMakeGenericSystem.cmake
+C:/application/cmake/share/cmake-3.30/Modules/CMakeInitializeConfigs.cmake
+C:/application/cmake/share/cmake-3.30/Modules/CMakeLanguageInformation.cmake
+C:/application/cmake/share/cmake-3.30/Modules/CMakeRCInformation.cmake
+C:/application/cmake/share/cmake-3.30/Modules/CMakeSystemSpecificInformation.cmake
+C:/application/cmake/share/cmake-3.30/Modules/CMakeSystemSpecificInitialize.cmake
+C:/application/cmake/share/cmake-3.30/Modules/Compiler/CMakeCommonCompilerMacros.cmake
+C:/application/cmake/share/cmake-3.30/Modules/Compiler/MSVC-C.cmake
+C:/application/cmake/share/cmake-3.30/Modules/Compiler/MSVC-CXX.cmake
+C:/application/cmake/share/cmake-3.30/Modules/Compiler/MSVC.cmake
+C:/application/cmake/share/cmake-3.30/Modules/Platform/Windows-Initialize.cmake
+C:/application/cmake/share/cmake-3.30/Modules/Platform/Windows-MSVC-C.cmake
+C:/application/cmake/share/cmake-3.30/Modules/Platform/Windows-MSVC-CXX.cmake
+C:/application/cmake/share/cmake-3.30/Modules/Platform/Windows-MSVC.cmake
+C:/application/cmake/share/cmake-3.30/Modules/Platform/Windows.cmake
+C:/application/cmake/share/cmake-3.30/Modules/Platform/WindowsPaths.cmake
+D:/Github/PlumOS/GUI_PlumOS/CMakeLists.txt
+D:/Github/PlumOS/GUI_PlumOS/out/build/Clang 19.1.0 x86_64-pc-windows-msvc/CMakeFiles/3.30.0/CMakeCCompiler.cmake
+D:/Github/PlumOS/GUI_PlumOS/out/build/Clang 19.1.0 x86_64-pc-windows-msvc/CMakeFiles/3.30.0/CMakeCXXCompiler.cmake
+D:/Github/PlumOS/GUI_PlumOS/out/build/Clang 19.1.0 x86_64-pc-windows-msvc/CMakeFiles/3.30.0/CMakeRCCompiler.cmake
+D:/Github/PlumOS/GUI_PlumOS/out/build/Clang 19.1.0 x86_64-pc-windows-msvc/CMakeFiles/3.30.0/CMakeSystem.cmake
