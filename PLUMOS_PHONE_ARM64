@@ -1,0 +1,143 @@
+cpu	 	arm64 
+ident		PLUMOS_PHONE_ARM64
+
+makeoptions     WITH_CTF=1
+
+options         arm64
+options         SCHED_ULE
+options         NUMA
+options         PREEMPTION
+options         IPSEC_SUPPORT
+options         TCP_RFC7413
+options         TCP_OFFLOAD
+options         KERN_TLS
+options         FFS
+options         SOFTUPDATES
+options         MSDOSFS
+options         TMPFS
+options         EFIRT
+options         CAPABILITY_MODE
+options         CAPABILITIES
+options         PRINTF_BUFR_SIZE=128
+options         KBD_INSTALL_CDEV
+options         SYSVSHM
+options         SYSVMSG
+options         SYSVSEM
+options         INET			# InterNETworking
+options         INET6			# IPv6 communications protocols
+options         COMPAT_FREEBSD9
+options         COMPAT_FREEBSD10
+options         COMPAT_FREEBSD11
+options         COMPAT_FREEBSD12
+options         COMPAT_FREEBSD13	
+options         SMP
+options         AUDIT
+options 	      MAC
+
+device    	    iicbus
+device    	    iic
+device    	    iicbb
+device 		      agp
+device          scbus
+device          pass
+device          da
+options         CAMDEBUG
+
+# Debugging support.
+options         KDB			# Enable kernel debugger support.
+options         KDB_TRACE
+
+# Bus support.
+device          acpi
+device          smbios
+
+# NVM Express
+device          nvme
+device          nvd
+
+# Pseudo devices.
+device          ether
+device          vlan
+device          tuntap
+device          virtio
+device          loop
+device          gif
+device          bpf
+device          firmware
+device 		      crypto
+options 	      VFP
+options         IPSEC
+device          vmm
+device          kvm
+options         CPU_ENABLE_SSE
+options         CPU_ENABLE_AVX
+device          evdev
+
+# CPU frequency control
+device          cpufreq
+
+# Wireless NIC cards
+device          wlan			# 802.11 support
+device 		      wlan_xauth
+device 		      wlan_tkip
+device 		      wlan_ccmp
+device 		      wlan_amrr
+device          em
+device          igc
+
+# syscons
+device          splash			# Splash screen and screen saver support
+
+# Sound
+device          sound                   # Generic sound driver (required)
+device          snd_cmi                 # CMedia CMI8338/CMI8738
+device          snd_csa                 # Crystal Semiconductor CS461x/428x
+device          snd_emu10kx             # Creative SoundBlaster Live! and Audigy
+device          snd_es137x              # Ensoniq AudioPCI ES137x
+device          snd_hda                 # Intel High Definition Audio
+device          snd_ich                 # Intel, NVidia and other ICH AC'97 Audio
+device          snd_via8233             # VIA VT8233x Audio
+
+# Bluetooth
+device          bt
+device          bthci
+device          bluez5
+
+# RAID
+options         GEOM_RAID
+device          raid
+
+# HyperV drivers and enhancement support
+device          hyperv 
+
+
+
+device       video
+device       v4l2
+
+device       gpsd       # Поддержка GPS
+device       accelerometer
+device       gyroscope
+
+# vt
+device          vt
+device          vt_efifb
+device          drm2
+
+# USB Support
+device          ahci
+device          ehci			# (USB 2.0)
+device          xhci			# (USB 3.0)
+device          usb			# USB Bus
+device          ukbd			# Keyboard
+device          umass			# Disks/Mass storage
+
+# MMC/SD
+device          mmc			# MMC/SD bus
+device          mmcsd                   # MMC/SD memory card
+device          sdhci                   # Generic PCI SD Host Controller
+
+# HID support
+device          hid			# Generic HID support
+device          bthid
+
