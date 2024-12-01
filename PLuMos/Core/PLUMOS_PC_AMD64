@@ -1,9 +1,8 @@
-cpu	 	amd64 
+machine		amd64
+cpu	 	HAMMER 
 ident		PLUMOS_PC_AMD64
 
 makeoptions     WITH_CTF=1
-
-options         amd64
 options         SCHED_ULE
 options         NUMA
 options         PREEMPTION
@@ -31,13 +30,13 @@ options         COMPAT_FREEBSD11
 options         COMPAT_FREEBSD12
 options         COMPAT_FREEBSD13	
 options         SMP
-options         AUDIT
-options 	      MAC
-
-device    	    iicbus
-device    	    iic
-device    	    iicbb
-device 		      agp
+options		AUDIT
+options 	MAC
+device		netmap
+device    	iicbus
+device    	iic
+device    	iicbb
+device 		agp
 device          scbus
 device          pass
 device          da
@@ -64,48 +63,50 @@ device          loop
 device          gif
 device          bpf
 device          firmware
-device 		      crypto
-options 	      VFP
+device 		crypto
 options         IPSEC
-device          vmm
-device          kvm
-options         CPU_ENABLE_SSE
-options         CPU_ENABLE_AVX
 device          evdev
+options         EVDEV_SUPPORT
+device		zlib
+device          pci
+device          if_bridge
+device          uinput
+options 	CD9660
+options 	FDESCFS
+options 	FUSEFS
+options 	MSDOSFS
 
 # CPU frequency control
 device          cpufreq
 
 # Wireless NIC cards
 device          wlan			# 802.11 support
-device 		      wlan_xauth
-device 		      wlan_tkip
-device 		      wlan_ccmp
-device 		      wlan_amrr
+device 		wlan_xauth
+device 		wlan_tkip
+device 		wlan_ccmp
+device 		wlan_amrr
+device          wlan_wep
 device          em
 device          igc
+device          tuntap
 
 # syscons
 device          splash			# Splash screen and screen saver support
 
 # Sound
 device          sound                   # Generic sound driver (required)
-device          snd_cmi                 # CMedia CMI8338/CMI8738
-device          snd_csa                 # Crystal Semiconductor CS461x/428x
-device          snd_emu10kx             # Creative SoundBlaster Live! and Audigy
-device          snd_es137x              # Ensoniq AudioPCI ES137x
 device          snd_hda                 # Intel High Definition Audio
 device          snd_ich                 # Intel, NVidia and other ICH AC'97 Audio
-device          snd_via8233             # VIA VT8233x Audio
 
 # Bluetooth
-device          bt
-device          bthci
-device          bluez5
+options 	NETGRAPH_BLUETOOTH
+options 	NETGRAPH_BLUETOOTH_HCI
+options 	NETGRAPH_BLUETOOTH_SOCKET
+options 	NETGRAPH_BLUETOOTH_UBT
+options 	NETGRAPH_BLUETOOTH_UBTBCMFW
 
 # RAID
 options         GEOM_RAID
-device          raid
 
 # HyperV drivers and enhancement support
 device          hyperv 
@@ -114,9 +115,6 @@ device          hyperv
 device          vt
 device          vt_efifb
 device          drm2
-device          radeonkms
-device          i915kms
-device          nvidia
 
 # USB Support
 device          ahci
@@ -133,5 +131,16 @@ device          sdhci                   # Generic PCI SD Host Controller
 
 # HID support
 device          hid			# Generic HID support
-device          bthid
-
+device		hidbus
+device		hidmap
+device		hidraw
+device		hconf
+device		hcons
+device		hgame
+device		hkbd
+device		hms
+device		hmt
+device		hpen
+device		hsctrl
+device		uhid
+device		usbhid
