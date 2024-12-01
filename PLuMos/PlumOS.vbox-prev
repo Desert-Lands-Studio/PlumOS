@@ -6,7 +6,7 @@
 ** Use VBoxManage or the VirtualBox Manager GUI to make changes.
 -->
 <VirtualBox xmlns="http://www.virtualbox.org/" version="1.19-windows">
-  <Machine uuid="{ec11ce56-fe81-4c0a-a1ab-628a734c1dce}" name="PlumOS" OSType="FreeBSD_64" snapshotFolder="Snapshots" lastStateChange="2024-11-29T19:05:27Z" aborted="true">
+  <Machine uuid="{ec11ce56-fe81-4c0a-a1ab-628a734c1dce}" name="PlumOS" OSType="FreeBSD_64" snapshotFolder="Snapshots" lastStateChange="2024-12-01T15:12:13Z">
     <MediaRegistry>
       <HardDisks>
         <HardDisk uuid="{1f34968e-e41f-4cb5-aaab-cbe2edaeb7ef}" location="D:/Github/PlumOS/NewVirtualDisk1.vhd" format="VHD" type="Normal"/>
@@ -18,7 +18,7 @@
     </MediaRegistry>
     <ExtraData>
       <ExtraDataItem name="GUI/LastCloseAction" value="PowerOff"/>
-      <ExtraDataItem name="GUI/LastNormalWindowPosition" value="2669,124,640,520"/>
+      <ExtraDataItem name="GUI/LastNormalWindowPosition" value="2545,170,640,520"/>
     </ExtraData>
     <Hardware>
       <CPU count="4">
@@ -43,7 +43,9 @@
       </USB>
       <Network>
         <Adapter slot="0" enabled="true" MACAddress="0800279FD983" type="82540EM">
-          <NAT localhost-reachable="true"/>
+          <NAT localhost-reachable="true">
+            <Forwarding name="SSH" proto="1" hostport="2222" guestport="22"/>
+          </NAT>
         </Adapter>
         <Adapter slot="8" cable="false">
           <DisabledModes>
@@ -190,7 +192,7 @@
       <Clipboard mode="Bidirectional"/>
       <DragAndDrop mode="Bidirectional"/>
       <GuestProperties>
-        <GuestProperty name="/VirtualBox/HostInfo/GUI/LanguageID" value="ru_RU" timestamp="1732907126397803800" flags=""/>
+        <GuestProperty name="/VirtualBox/HostInfo/GUI/LanguageID" value="ru_RU" timestamp="1733065933251715800" flags=""/>
       </GuestProperties>
       <StorageControllers>
         <StorageController name="IDE" type="PIIX4" PortCount="2" useHostIOCache="true" Bootable="true">

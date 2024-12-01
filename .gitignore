@@ -1,1 +1,5 @@
 *.vhd
+PLuMos/PlumOS.vbox-prev
+*.vbox
+*.nvram
+/PLuMos/Logs
