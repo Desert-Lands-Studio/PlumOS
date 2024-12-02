@@ -1,11 +1,9 @@
 cpu             ARM64
-ident		PLUMOS_PC_ARM64
+ident		        PLUMOS_PC
 
 include         "std.arm64"
 include         "std.dev"
-
 include         "std.amd"
-include         "std.broadcom"
 
 makeoptions     WITH_CTF=1
 options         SCHED_ULE
@@ -117,6 +115,7 @@ device          hyperv
 # vt
 device          vt
 device          vt_efifb
+device          drm
 device          drm2
 
 # USB Support
