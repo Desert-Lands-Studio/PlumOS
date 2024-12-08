@@ -76,6 +76,9 @@ options		CD9660
 options		FDESCFS
 options		FUSEFS
 options		MSDOSFS
+options 	NETGRAPH
+options 	NETGRAPH_DEBUG
+
 
 # CPU frequency control
 device          cpufreq
@@ -101,7 +104,9 @@ device          snd_ich
 # Bluetooth
 options 	      NETGRAPH_BLUETOOTH
 options 	      NETGRAPH_BLUETOOTH_HCI
+options 	      NETGRAPH_BLUETOOTH_L2CAP
 options 	      NETGRAPH_BLUETOOTH_SOCKET
+options         NETGRAPH_DEVICE
 options 	      NETGRAPH_BLUETOOTH_UBT
 options 	      NETGRAPH_BLUETOOTH_UBTBCMFW
 
