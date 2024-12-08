@@ -39,7 +39,6 @@ device		netmap
 device		iicbus
 device		iic
 device		iicbb
-device		agp
 device		scbus
 device		pass
 device		da
@@ -115,7 +114,6 @@ device          hyperv
 # vt
 device          vt
 device          vt_efifb
-device          drm
 device          drm2
 
 # USB Support
