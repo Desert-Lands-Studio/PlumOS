@@ -3,3 +3,6 @@ PLuMos/PlumOS.vbox-prev
 *.vbox
 *.nvram
 /PLuMos/Logs
+/.vs
+/.seL4
+/.freebsd-src
