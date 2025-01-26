@@ -6,3 +6,4 @@ PLuMos/PlumOS.vbox-prev
 /.vs
 /.seL4
 /.freebsd-src
+.fake

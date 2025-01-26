@@ -5,14 +5,22 @@ FILE_GUID          = 40a1b2e8-102d-420b-9319-8990ac571766
 MODULE_TYPE        = UEFI_APPLICATION
 VERSION_STRING     = 1.0
 ENTRY_POINT        = UefiMain
+MODULE_UNI_FILE    = PlumOS/PlumLoader.uni
 
 [Sources]
-main.c
+PlumOS/main.c
 
 [Packages]
 ArmVirtPkg/ArmVirtPkg.dec
+MdePkg/MdePkg.dec
 
 [LibraryClasses]
 BaseLib
 UefiBootServicesTableLib
 UefiLib
+PrintLib
+DebugLib
+PcdLib
+BaseMemoryLib
+MemoryAllocationLib
+DevicePathLib
