@@ -1,0 +1,5 @@
+section .text
+    global longmode_entry
+longmode_entry:
+    ; Здесь будет код перехода в long mode
+    ret

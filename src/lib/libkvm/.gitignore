@@ -1,5 +1,0 @@
-Cargo.lock
-target/
-**/*.rs.bk
-examples/payload/payload.o
-examples/payload/payload.img

@@ -1,7 +1,0 @@
-[package]
-name = "libkvm"
-version = "0.0.1"
-authors = ["Allison Randal <allison@lohutok.net>"]
-
-[dependencies]
-libc = "*"
