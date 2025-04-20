@@ -1,0 +1,39 @@
+[package]
+name = "plumboot-x86_64-uefi"
+version = "0.1.0"
+edition = "2024"
+description = "UEFI bootloader for x86_64"
+
+[dependencies]
+uefi = "0.34.1"
+uefi-services = "0.25.0"
+fatfs = "0.3.6"
+ext2  = "0.1.1"
+log   = "0.4.27"
+bootsector = "0.2.0"
+
+x86_64 = { version = "0.15.2", optional = true }
+pc-keyboard = { version = "0.8.0", optional = true }
+bootloader = { version = "0.11.10", optional = true }
+
+[features]
+default = ["uefi"]
+uefi = []
+bios = ["x86_64", "pc-keyboard", "bootloader"]
+arm64 = []
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+lto = false
+
+#[cfg(target_arch = "x86_64")]
+mod arch_x86_64;
+
+#[cfg(target_arch = "aarch64")]
+mod arch_aarch64;
+
+#[cfg(target_arch = "riscv64")]
+mod arch_riscv64;
