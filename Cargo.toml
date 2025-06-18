@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "plum_bootloader",
+    "plum_bootloader/crates/plam",
+]
+
+[profile.release]
+opt-level = "z"
+panic = "abort"
+lto = true
+codegen-units = 1
