@@ -16,8 +16,9 @@ fn panic(_info: &PanicInfo) -> ! {
     loop {}
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn _start() -> ! {
+/// Entry point called from the architecture specific boot code.
+#[no_mangle]
+pub extern "C" fn rust_main() -> ! {
     loop {}
 }
 

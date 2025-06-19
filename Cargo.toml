@@ -2,6 +2,7 @@
 members = [
     "plum_bootloader",
     "plum_bootloader/crates/plam",
+    "kernel",
 ]
 
 [profile.release]
