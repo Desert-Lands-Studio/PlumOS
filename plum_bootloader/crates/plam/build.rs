@@ -12,6 +12,7 @@ fn main() {
         .allowlist_type("plam_.*")
         .allowlist_var("PLAM_.*")
         .clang_arg("-Wno-pragma-pack")
+        .clang_arg("-I/usr/include/x86_64-linux-gnu")
         // Подавляем предупреждения о стиле именования
         .rustified_enum("plam_cpu_t")
         .rustified_enum("plam_cpu_subtype_t")

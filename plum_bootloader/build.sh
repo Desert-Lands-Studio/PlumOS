@@ -63,4 +63,5 @@ echo "ESP ready: $ESP_IMG"
 echo "Running QEMU test..."
 qemu-system-x86_64 -bios "$OVMF_PATH" \
     -drive if=none,format=raw,file=$ESP_IMG,id=esp \
-    -device ide-hd,drive=esp -serial stdio -no-reboot
+    -device ide-hd,drive=esp \
+    -serial stdio -no-reboot
