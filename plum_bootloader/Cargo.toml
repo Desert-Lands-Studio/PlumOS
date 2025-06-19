@@ -3,8 +3,6 @@ name = "plum_bootloader"
 version = "0.1.0"
 edition = "2021"
 
-[workspace]
-
 [dependencies]
 uefi = { version = "0.35.0", features = ["alloc", "global_allocator", "panic_handler"] }
-
+plam = { path = "crates/plam" }

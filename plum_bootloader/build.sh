@@ -36,7 +36,7 @@ fi
 
 # Сборка bootloader
 echo "Building PLUM bootloader..."
-cargo build --release --target $TARGET
+cargo +nightly build -Z build-std=core,alloc --release --target $TARGET
 
 # Проверка успешности сборки
 if [ ! -f "$BOOT_EFI" ]; then
