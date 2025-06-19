@@ -45,4 +45,15 @@ copies the bootloader and `kernel.plam` into it and boots the image in QEMU
 cd plum_bootloader
 ./build.sh
 ```
+To build the kernel for x86_64:
 
+```bash
+cd kernel
+cargo build --target arch/x86_64/boot/x86_64-plumos.json
+```
+
+You will need the nightly Rust toolchain and `llvm-tools-preview` component for `rust-lld`.
+
+## Architecture directories
+
+Architecture specific boot code lives under `kernel/arch/<arch>/boot/`. An initial AArch64 stub has been added as an example.
