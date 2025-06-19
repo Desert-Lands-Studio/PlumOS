@@ -1,0 +1,24 @@
+# PlumOS
+
+PlumOS is an experimental operating system written mostly in Rust with some C/C++ and assembly bits. The goal is to build a small modular kernel that can eventually run on multiple architectures (x86_64, aarch64, riscv64 and more).
+
+This repository currently contains early boot code and a very small Rust kernel. The project is in a very early stage and does not build out of the box yet. The code is provided as a starting point for experimentation.
+
+## Building
+
+A custom target file is used for bare‑metal compilation. For x86_64 the target description is located at `kernel/arch/x86_64/boot/x86_64-plumos.json`.
+
+To build the kernel for x86_64:
+
+```bash
+cd kernel
+cargo build --target arch/x86_64/boot/x86_64-plumos.json
+```
+
+You will need the nightly Rust toolchain and `llvm-tools-preview` component for `rust-lld`.
+
+## Architecture directories
+
+Architecture specific boot code lives under `kernel/arch/<arch>/boot/`. An initial AArch64 stub has been added as an example.
+
+
