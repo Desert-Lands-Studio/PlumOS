@@ -8,6 +8,24 @@ This repository currently contains early boot code and a very small Rust kernel.
 
 A custom target file is used for bare‑metal compilation. For x86_64 the target description is located at `kernel/arch/x86_64/boot/x86_64-plumos.json`.
 
+To build the kernel for x86_64 you will need a nightly toolchain with the
+`rust-src` component installed. Enable `build-std` so that the `core`
+library is built for the custom target.
+
+```bash
+rustup toolchain install nightly --component rust-src
+cd kernel
+cargo +nightly build -Z build-std=core --target arch/x86_64/boot/x86_64-plumos.json
+```
+
+Alternatively, running `cargo build` in the repository root will attempt the
+same build.
+
+## Architecture directories
+
+Architecture specific boot code lives under `kernel/arch/<arch>/boot/`. An
+initial AArch64 stub has been added as an example.
+=======
 To build the kernel for x86_64:
 
 ```bash
@@ -20,5 +38,3 @@ You will need the nightly Rust toolchain and `llvm-tools-preview` component for 
 ## Architecture directories
 
 Architecture specific boot code lives under `kernel/arch/<arch>/boot/`. An initial AArch64 stub has been added as an example.
-
-
