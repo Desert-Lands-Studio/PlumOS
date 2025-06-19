@@ -1,5 +1,7 @@
 [workspace]
 members = [
+    "plum_bootloader",
+    "plum_bootloader/crates/plam",
     "kernel",
 ]
 resolver = "2"
