@@ -25,7 +25,26 @@ same build.
 
 Architecture specific boot code lives under `kernel/arch/<arch>/boot/`. An
 initial AArch64 stub has been added as an example.
-=======
+
+## Bootloader
+
+The `plum_bootloader` crate is a minimal UEFI loader that looks for
+`kernel.plam` on the EFI system partition and reports the loading result on the
+firmware console.  It can be built for x86_64 with:
+
+```bash
+cargo +nightly build --target x86_64-unknown-uefi \
+    --manifest-path plum_bootloader/Cargo.toml
+```
+
+The helper script `plum_bootloader/build.sh` creates a small FAT image,
+copies the bootloader and `kernel.plam` into it and boots the image in QEMU
+(OVMF firmware is required):
+
+```bash
+cd plum_bootloader
+./build.sh
+```
 To build the kernel for x86_64:
 
 ```bash
