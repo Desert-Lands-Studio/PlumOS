@@ -4,6 +4,7 @@
 *.log
 *.tmp
 *.swp
+*.txt
 .DS_Store
 Thumbs.db
 
