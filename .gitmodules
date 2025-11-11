@@ -1,0 +1,20 @@
+[submodule "bootloader"]
+	path = bootloader
+	url = git@github.com:Desert-Lands-Studio/PlumBootloader.git
+	branch = main
+[submodule "drivers"]
+	path = drivers
+	url = git@github.com:Desert-Lands-Studio/PlumDrivers.git
+	branch = main
+[submodule "sdk"]
+	path = sdk
+	url = git@github.com:Desert-Lands-Studio/PlumSDK.git
+	branch = main
+[submodule "graphics/PlumUI"]
+	path = graphics/PlumUI
+	url = git@github.com:Desert-Lands-Studio/PlumUI.git
+	branch = main
+[submodule "graphics/Pireon"]
+	path = graphics/Pireon
+	url = git@github.com:Desert-Lands-Studio/Pireon.git
+	branch = main
