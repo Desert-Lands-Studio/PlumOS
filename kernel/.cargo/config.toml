@@ -1,6 +1,0 @@
-[build]
-target = "arch/x86_64/boot/x86_64-plumos.json"
-
-[unstable]
-build-std = ["core", "alloc", "compiler_builtins"]
-build-std-features = ["compiler-builtins-mem"]

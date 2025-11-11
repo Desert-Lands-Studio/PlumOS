@@ -1,0 +1,15 @@
+[package]
+name = "psh"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ppm-core = { path = "../../../sdk/lib/ppm-core", features = ["cli"] }
+plum-abi = { path = "../../../sdk/lib/plum-abi" }
+tokio = { version = "1.48.0", features = ["full"] }
+anyhow = "1.0.100"
+ctrlc = "3.5.1"
+
+[target.'cfg(not(target_os = "none"))'.dependencies]
+nix = "0.30.1"
+libc = "0.2.177"

@@ -1,0 +1,31 @@
+[system]
+default_channel = "stable"
+architecture = "x86_64"
+system_root = "/"
+
+[repositories.plum-main]
+name = "Plum"
+channel = "stable"
+url = "http://localhost/stable"
+
+[[repositories]]
+name = "Blossom"
+channel = "testing"
+url = "http://localhost/testing"
+
+[[repositories]]
+name = "Seed"
+channel = "unstable"
+url = "http://localhost/unstable"
+
+[[repositories]]
+name = "dev"
+channel = "dev"
+path = "/srv/ppm/dev/src"
+
+[security]
+kernel_verification = true
+secure_boot = true
+trusted_keys = [
+    "/system/keys/plum-core.pub",
+]

@@ -1,0 +1,16 @@
+[package]
+name = "ppm-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ppm-core = { path = "../../../sdk/lib/ppm-core" }
+plum-abi = { path = "../../../sdk/lib/plum-abi" }
+
+[target.'cfg(target_os = "plumos")'.dependencies]
+plum-hal = { path = "../../../sdk/lib/plum-hal" }
+warp = "0.4.2"
+tokio = { version = "1.48.0", features = ["full"] }
+serde_json = "1.0.145"
+chrono = { version = "0.4.42", features = ["serde"] }
+ppm-core = { path = "../../../sdk/lib/ppm-core" }

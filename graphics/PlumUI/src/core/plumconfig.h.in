@@ -1,0 +1,106 @@
+/* ── PlumX/PlumUI/src/core/plumconfig.h.in ─────────────────────────────────────────── */
+#pragma once
+/*  plumconfig.h
+ *  ──────────────────────────────────────────
+ *  Генерируется CMake-ом → build/generated/plumconfig.h
+ *  Редактировать нужно ТОЛЬКО .in-файл и CMake-флаги.
+ */
+
+#ifndef PLUM_CONFIG_H
+#define PLUM_CONFIG_H
+
+/* ─── Версия ─────────────────────────────────────────────────────────── */
+#define PLUM_CONF_VERSION_MAJOR  @PROJECT_VERSION_MAJOR@
+#define PLUM_CONF_VERSION_MINOR  @PROJECT_VERSION_MINOR@
+#define PLUM_CONF_VERSION_PATCH  @PROJECT_VERSION_PATCH@
+#define PLUM_CONF_VERSION_STRING "@PROJECT_VERSION@"
+
+/* ─── Тип сборки ─────────────────────────────────────────────────────── */
+#cmakedefine PLUM_CONF_DEBUG
+#cmakedefine PLUM_CONF_RELEASE
+
+/* ─── Архитектура ────────────────────────────────────────────────────── */
+#cmakedefine PLUM_ARCH_X86
+#cmakedefine PLUM_ARCH_X86_64
+#cmakedefine PLUM_ARCH_ARM
+#cmakedefine PLUM_ARCH_ARM64
+#cmakedefine PLUM_ARCH_RISCV64
+
+/* ─── Платформы (PDK) ───────────────────────────────────────────────── */
+#cmakedefine PLUM_PLATFORM_WIN32
+#cmakedefine PLUM_PLATFORM_X11
+#cmakedefine PLUM_PLATFORM_WAYLAND
+#cmakedefine PLUM_PLATFORM_COCOA
+#cmakedefine PLUM_PLATFORM_PANE
+
+/* ─── RHI-бэкэнды  (⚠ имена НЕ совпадают с enum) ────────────────────── */
+#cmakedefine PLUM_CONF_HAS_OPENGL
+#cmakedefine PLUM_CONF_HAS_OPENGLES
+#cmakedefine PLUM_CONF_HAS_VULKAN
+#cmakedefine PLUM_CONF_HAS_METAL
+#cmakedefine PLUM_CONF_HAS_DIRECTX12
+#cmakedefine PLUM_CONF_HAS_OPENCL
+#cmakedefine PLUM_CONF_HAS_PLUMPAINT
+
+#define PLUM_CONF_RHI_DEFAULT "@PLUM_CONF_RHI_DEFAULT@"
+
+/* ─── Подсистемы / фичи ─────────────────────────────────────────────── */
+#cmakedefine01 PLUM_ENABLE_FREETYPE
+#cmakedefine01 PLUM_ENABLE_HARFBUZZ
+#cmakedefine01 PLUM_ENABLE_ICU
+#cmakedefine01 PLUM_ENABLE_THREADS
+#cmakedefine01 PLUM_ENABLE_ASSERT
+#cmakedefine01 PLUM_ENABLE_LOG
+#cmakedefine01 PLUM_ENABLE_TRACING
+
+/* ─── Компилятор / ОС ───────────────────────────────────────────────── */
+#if defined(_MSC_VER)
+#  define PLUM_COMPILER_MSVC 1
+#elif defined(__clang__)
+#  define PLUM_COMPILER_CLANG 1
+#elif defined(__GNUC__)
+#  define PLUM_COMPILER_GCC  1
+#else
+#  define PLUM_COMPILER_UNKNOWN 1
+#endif
+
+#if defined(_WIN32)
+#  define PLUM_OS_WINDOWS 1
+#elif defined(__APPLE__)
+#  include <TargetConditionals.h>
+#  if TARGET_OS_OSX
+#    define PLUM_OS_MACOS 1
+#  elif TARGET_OS_IOS
+#    define PLUM_OS_IOS 1
+#  else
+#    define PLUM_OS_APPLE_UNKNOWN 1
+#  endif
+#elif defined(__linux__)
+#  define PLUM_OS_LINUX 1
+#elif defined(__FreeBSD__)
+#  define PLUM_OS_FREEBSD 1
+#else
+#  define PLUM_OS_UNKNOWN 1
+#endif
+
+/* ─── DLL-экспорт/импорт ────────────────────────────────────────────── */
+#if defined(PLUM_OS_WINDOWS) && defined(PLUM_BUILD_SHARED)
+#  if defined(PlumUI_EXPORTS)
+#    define PLUM_API __declspec(dllexport)
+#  else
+#    define PLUM_API __declspec(dllimport)
+#  endif
+#elif (defined(PLUM_COMPILER_CLANG) || defined(PLUM_COMPILER_GCC)) && defined(PLUM_BUILD_SHARED)
+#  define PLUM_API __attribute__((visibility("default")))
+#else
+#  define PLUM_API
+#endif
+
+/* ─── Вспомогательные макросы ───────────────────────────────────────── */
+#if defined(PLUM_CONF_DEBUG)
+#  define PLUM_DEBUG 1
+#else
+#  define PLUM_DEBUG 0
+#endif
+
+#endif /* PLUM_CONFIG_H */

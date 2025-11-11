@@ -1,0 +1,32 @@
+[build]
+target-dir = "target"
+rustflags = ["-A", "dead_code", "-A", "unused"]
+
+[target.aarch64-unknown-none]
+linker = "rust-lld"
+rustflags = [
+  "-C", "link-arg=-Tbootloader/linkers/aarch64.ld",
+  "-C", "panic=abort",
+  "-C", "linker=rust-lld"
+]
+
+[target.riscv64gc-unknown-none-elf]
+linker = "rust-lld"
+rustflags = [
+    "-C", "link-arg=-Trust/linker/riscv64.ld",
+    "-C", "panic=abort",
+]
+
+[target.x86_64-unknown-uefi]
+linker = "rust-lld"
+rustflags = [
+    "-C", "link-arg=-Trust/linker/x86_64-uefi.ld",
+    "-C", "panic=abort",
+]
+
+[target.'cfg(all(target_arch = "x86_64", target_os = "none"))']
+linker = "rust-lld"
+rustflags = [
+    "-C", "link-arg=-Trust/linker/x86_64-bios.ld",
+    "-C", "panic=abort",
+]

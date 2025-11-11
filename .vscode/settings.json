@@ -1,0 +1,12 @@
+{
+  "rust-analyzer.cargo.target": "aarch64-unknown-none",
+  "rust-analyzer.checkOnSave.target": "aarch64-unknown-none",
+  "rust-analyzer.checkOnSave.allTargets": false,
+  "rust-analyzer.diagnostics.disabled": [
+    "unlinked-file",
+    "missing-unsafe",
+    "rustc::unlinked-file",
+    "rustc::unresolved-crate",
+    "rustc::cannot-find-test-crate"
+  ]
+}

@@ -1,0 +1,2149 @@
+📁 directx
+    📄 rhid3d12backend.c
+    ────────────────────────────
+    #include "rhi.h"
+    #include <d3d12.h>
+    #include <dxgi1_4.h>
+    #include <wrl/client.h>
+    #include <stdio.h>
+    #include <stdlib.h>
+    
+    
+    #ifdef __cplusplus
+    using Microsoft::WRL::ComPtr;
+    #else
+    typedef struct IUnknown* ComPtr;
+    #endif
+    
+    typedef struct {
+        PlumRhi base;
+        ID3D12Device* device;
+        ID3D12CommandQueue* command_queue;
+        IDXGIFactory4* dxgi_factory;
+        IDXGISwapChain* swap_chain;
+        void* window_handle;
+    } D3D12Backend;
+    
+    static bool is_d3d12_available(void) {
+        HMODULE d3d12 = LoadLibraryA("d3d12.dll");
+        if (!d3d12) return false;
+        
+        
+        FARPROC create_device = GetProcAddress(d3d12, "D3D12CreateDevice");
+        FreeLibrary(d3d12);
+        
+        return create_device != NULL;
+    }
+    
+    static HRESULT create_d3d12_device(IDXGIFactory4* factory, ID3D12Device** device) {
+        ComPtr<IDXGIAdapter1> adapter;
+        
+        
+        for (UINT adapter_index = 0; 
+             factory->EnumAdapters1(adapter_index, &adapter) != DXGI_ERROR_NOT_FOUND; 
+             adapter_index++) {
+            
+            DXGI_ADAPTER_DESC1 desc;
+            adapter->GetDesc1(&desc);
+            
+            
+            if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) {
+                continue;
+            }
+            
+            
+            HRESULT hr = D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_12_0, 
+                                          _uuidof(ID3D12Device), (void**)device);
+            if (SUCCEEDED(hr)) {
+                printf("✅ Using DirectX 12 adapter: %ls\n", desc.Description);
+                return hr;
+            }
+        }
+        
+        return E_FAIL;
+    }
+    
+    static PlumRhi* create_d3d12(const PlumRhiVersion* requested_version) {
+        printf("Creating DirectX 12 backend for Windows\n");
+        
+        if (!is_d3d12_available()) {
+            fprintf(stderr, "D3D12 not available on this system\n");
+            return NULL;
+        }
+        
+        D3D12Backend* backend = (D3D12Backend*)malloc(sizeof(D3D12Backend));
+        if (!backend) return NULL;
+        
+        
+        HRESULT hr = CreateDXGIFactory1(&IID_IDXGIFactory4, (void**)&backend->dxgi_factory);
+        if (FAILED(hr)) {
+            fprintf(stderr, "Failed to create DXGI factory: 0x%X\n", hr);
+            free(backend);
+            return NULL;
+        }
+        
+        
+        hr = create_d3d12_device(backend->dxgi_factory, &backend->device);
+        if (FAILED(hr)) {
+            fprintf(stderr, "Failed to create D3D12 device: 0x%X\n", hr);
+            backend->dxgi_factory->Release();
+            free(backend);
+            return NULL;
+        }
+        
+        
+        D3D12_COMMAND_QUEUE_DESC queue_desc = {
+            .Type = D3D12_COMMAND_LIST_TYPE_DIRECT,
+            .Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL,
+            .Flags = D3D12_COMMAND_QUEUE_FLAG_NONE,
+            .NodeMask = 0
+        };
+        
+        hr = backend->device->CreateCommandQueue(&queue_desc, &IID_ID3D12CommandQueue, 
+                                                (void**)&backend->command_queue);
+        if (FAILED(hr)) {
+            fprintf(stderr, "Failed to create command queue: 0x%X\n", hr);
+            backend->device->Release();
+            backend->dxgi_factory->Release();
+            free(backend);
+            return NULL;
+        }
+        
+        backend->swap_chain = NULL;
+        backend->window_handle = NULL;
+        
+        backend->base.info = &d3d12_info;
+        backend->base.version.major = 12;
+        backend->base.version.minor = 0;
+        
+        printf("✅ DirectX 12 backend created successfully\n");
+        return &backend->base;
+    }
+    
+    static void destroy_d3d12(PlumRhi* rhi) {
+        if (!rhi) return;
+        D3D12Backend* backend = (D3D12Backend*)rhi;
+        
+        if (backend->swap_chain) {
+            backend->swap_chain->Release();
+        }
+        if (backend->command_queue) {
+            backend->command_queue->Release();
+        }
+        if (backend->device) {
+            backend->device->Release();
+        }
+        if (backend->dxgi_factory) {
+            backend->dxgi_factory->Release();
+        }
+        free(backend);
+    }
+    
+    
+    static bool d3d12_create_swap_chain(D3D12Backend* backend, void* window_handle, 
+                                       int width, int height) {
+        if (!backend || !window_handle) return false;
+        
+        DXGI_SWAP_CHAIN_DESC swap_chain_desc = {
+            .BufferDesc = {
+                .Width = width,
+                .Height = height,
+                .RefreshRate = { 60, 1 }, 
+                .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+                .ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED,
+                .Scaling = DXGI_MODE_SCALING_UNSPECIFIED
+            },
+            .SampleDesc = { .Count = 1, .Quality = 0 },
+            .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
+            .BufferCount = 2, 
+            .OutputWindow = (HWND)window_handle,
+            .Windowed = TRUE,
+            .SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD,
+            .Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH
+        };
+        
+        HRESULT hr = backend->dxgi_factory->CreateSwapChain(
+            backend->command_queue, &swap_chain_desc, &backend->swap_chain);
+        
+        if (FAILED(hr)) {
+            fprintf(stderr, "Failed to create swap chain: 0x%X\n", hr);
+            return false;
+        }
+        
+        backend->window_handle = window_handle;
+        return true;
+    }
+    
+    static const PlumRhiInfo d3d12_info = {
+        PLUM_RHI_D3D12,
+        "D3D12",
+        {12, 0},
+        90,
+        is_d3d12_available,
+        create_d3d12,
+        destroy_d3d12
+    };
+    
+    __attribute__((constructor)) 
+    static void register_directx_backend(void) {
+        if (is_d3d12_available()) {
+            plum_rhi_register(&d3d12_info);
+            printf("Registered DirectX 12 backend for Windows\n");
+        }
+    }    ────────────────────────────
+📄 loader.c
+────────────────────────────
+/* ── PlumX/PlumUI/src/render/loader.c ─────────────────────────────────────────── */
+#include "loader.h"
+#include "plum.h"
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+void plum_rhi_force(const char* name) {
+    plum_internal_set_forced_rhi(name);
+}
+
+void plum_rhi_set_order(const char* order_string) {
+    (void)order_string;
+}
+
+void plum_rhi_parse_args(int argc, char** argv) {
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-rhi") == 0 && i + 1 < argc) {
+            plum_rhi_force(argv[i + 1]);
+            i++;
+        } else if (strncmp(argv[i], "-rhi:", 5) == 0) {
+            plum_rhi_force(argv[i] + 5);
+        } else if (strcmp(argv[i], "-force_vulkan") == 0) {
+            plum_rhi_force("Vulkan");
+        } else if (strcmp(argv[i], "-force_opengl") == 0) {
+            plum_rhi_force("OpenGL");
+        } else if (strcmp(argv[i], "-force_opengles") == 0) {
+            plum_rhi_force("OpenGLES");
+        } else if (strcmp(argv[i], "-force_d3d12") == 0) {
+            plum_rhi_force("D3D12");
+        } else if (strcmp(argv[i], "-force_metal") == 0) {
+            plum_rhi_force("Metal");
+        } else if (strcmp(argv[i], "-rhi_chain") == 0 && i + 1 < argc) {
+            (void)argv[i + 1];
+            i++;
+        }
+    }
+}
+
+void plum_rhi_parse_env(void) {
+    const char* force = getenv("PLUM_FORCE_RHI");
+    if (force) {
+        plum_rhi_force(force);
+    }
+}────────────────────────────
+📄 loader.h
+────────────────────────────
+/* ── PlumX/PlumUI/src/render/loader.h ─────────────────────────────────────────── */
+#ifndef PLUM_LOADER_H
+#define PLUM_LOADER_H
+
+#include "plumconfig.h"
+#include "rhi.h"
+
+void plum_rhi_force(const char* name);
+void plum_rhi_set_order(const char* order_string);
+void plum_rhi_parse_args(int argc, char** argv);
+void plum_rhi_parse_env(void);
+PlumRhi* plum_rhi_select_by_order(void);
+
+#endif /* PLUM_LOADER_H */
+────────────────────────────
+📁 opengl
+    📄 glcontext.h
+    ────────────────────────────
+    #pragma once
+    #include <stdbool.h>
+    
+    #ifdef __cplusplus
+    extern "C" {
+    #endif
+    
+    typedef struct GLContext GLContext;
+    
+    typedef struct {
+        bool (*init)(void* native_window, int width, int height);
+        void (*make_current)(void);
+        void (*swap_buffers)(void);
+        void (*destroy)(void);  
+        void* (*get_proc_address)(const char* name);
+    } GLContextInterface;
+    
+    GLContext* glcontext_create_for_platform(void* native_window, int width, int height);
+    void glcontext_destroy(void);  
+    bool glcontext_is_initialized(void);
+    void glcontext_set_current_context(GLContext* ctx);
+    
+    #ifdef __cplusplus
+    }
+    #endif
+    ────────────────────────────
+    📁 platform
+        📁 pane
+            📄 glcontext_plumpane.c
+            ────────────────────────────
+            ────────────────────────────
+        📁 quartz
+            📄 glcontext_cgl.c
+            ────────────────────────────
+            #include "render/opengl/glcontext.h"
+            #include <OpenGL/OpenGL.h>
+            #include <OpenGL/CGLTypes.h>
+            #include <stdlib.h>
+            #include <stdio.h>
+            
+            struct GLContext {
+                CGLContextObj context;
+                CGLPixelFormatObj pixel_format;
+            };
+            
+            static GLContext* g_current_context = NULL;
+            
+            static bool cgl_init(void* native_window, int width, int height) {
+                
+                
+                (void)native_window;
+                (void)width;
+                (void)height;
+            
+                GLContext* ctx = (GLContext*)calloc(1, sizeof(GLContext));
+                if (!ctx) return false;
+            
+                
+                CGLPixelFormatAttribute attribs[] = {
+                    kCGLPFAOpenGLProfile,
+                    (CGLPixelFormatAttribute)kCGLOGLPVersion_3_2_Core,
+                    kCGLPFAColorSize, (CGLPixelFormatAttribute)24,
+                    kCGLPFAAlphaSize, (CGLPixelFormatAttribute)8,
+                    kCGLPFADepthSize, (CGLPixelFormatAttribute)24,
+                    kCGLPFAStencilSize, (CGLPixelFormatAttribute)8,
+                    kCGLPFAAccelerated,
+                    kCGLPFADoubleBuffer,
+                    (CGLPixelFormatAttribute)0
+                };
+            
+                GLint num_pixel_formats;
+                CGLError error = CGLChoosePixelFormat(attribs, &ctx->pixel_format, &num_pixel_formats);
+                if (error != kCGLNoError || !ctx->pixel_format) {
+                    fprintf(stderr, "CGL: Failed to choose pixel format: %s\n", CGLErrorString(error));
+                    free(ctx);
+                    return false;
+                }
+            
+                error = CGLCreateContext(ctx->pixel_format, NULL, &ctx->context);
+                if (error != kCGLNoError || !ctx->context) {
+                    fprintf(stderr, "CGL: Failed to create context: %s\n", CGLErrorString(error));
+                    CGLDestroyPixelFormat(ctx->pixel_format);
+                    free(ctx);
+                    return false;
+                }
+            
+                error = CGLSetCurrentContext(ctx->context);
+                if (error != kCGLNoError) {
+                    fprintf(stderr, "CGL: Failed to make context current: %s\n", CGLErrorString(error));
+                    CGLDestroyContext(ctx->context);
+                    CGLDestroyPixelFormat(ctx->pixel_format);
+                    free(ctx);
+                    return false;
+                }
+            
+                g_current_context = ctx;
+                printf("✅ CGL Context initialized successfully\n");
+                return true;
+            }
+            
+            static void cgl_make_current(void) {
+                if (!g_current_context) return;
+                CGLSetCurrentContext(g_current_context->context);
+            }
+            
+            static void cgl_swap_buffers(void) {
+                if (!g_current_context) return;
+                CGLFlushDrawable(g_current_context->context);
+            }
+            
+            static void cgl_destroy(void) {
+                if (!g_current_context) return;
+            
+                CGLSetCurrentContext(NULL);
+                CGLDestroyContext(g_current_context->context);
+                CGLDestroyPixelFormat(g_current_context->pixel_format);
+            
+                free(g_current_context);
+                g_current_context = NULL;
+                printf("✅ CGL Context destroyed\n");
+            }
+            
+            static void* cgl_get_proc_address(const char* name) {
+                
+                
+                if (g_current_context) {
+                    return (void*)CGLGetProcAddress(g_current_context->context, (const GLubyte*)name);
+                }
+                return NULL;
+            }
+            
+            GLContextInterface g_cgl_interface = {
+                .init = cgl_init,
+                .make_current = cgl_make_current,
+                .swap_buffers = cgl_swap_buffers,
+                .destroy = cgl_destroy,
+                .get_proc_address = cgl_get_proc_address
+            };
+            
+            GLContext* glcontext_create_for_platform(void* native_window, int width, int height) {
+                if (!g_cgl_interface.init(native_window, width, height)) {
+                    return NULL;
+                }
+                return g_current_context;
+            }
+            
+            void glcontext_destroy(void) {
+                if (g_current_context) {
+                    g_current_context->destroy();
+                }
+            }
+            
+            bool glcontext_is_initialized(void) {
+                return g_current_context != NULL;
+            }
+            
+            void glcontext_set_current_context(GLContext* ctx) {
+                g_current_context = ctx;
+            }
+            ────────────────────────────
+        📁 wayland
+            📄 glcontext_egl.c
+            ────────────────────────────
+            #include "render/opengl/glcontext.h"
+            #include <EGL/egl.h>
+            #include <GL/gl.h>
+            #include <wayland-client.h>
+            #include <stdlib.h>
+            #include <stdio.h>
+            #include "pdk/platform/Wayland/pdkwindow-wayland.h"
+            
+            struct GLContext {
+                EGLDisplay display;
+                EGLContext context;
+                EGLSurface surface;
+                struct wl_surface* wl_surface;
+            };
+            
+            static struct GLContext* g_current_context = NULL;
+            
+            static bool egl_init(void* native_window, int width, int height) {
+                PdkWindow* pdk_win = (PdkWindow*)native_window;
+                if (!pdk_win || !pdk_win->surface) {
+                    fprintf(stderr, "❌ EGL: Invalid PdkWindow or surface\n");
+                    return false;
+                }
+            
+                struct GLContext* ctx = calloc(1, sizeof(struct GLContext));
+                if (!ctx) return false;
+            
+                ctx->wl_surface = pdk_win->surface;
+                ctx->display = eglGetDisplay((EGLNativeDisplayType)pdk_win->display);
+                if (ctx->display == EGL_NO_DISPLAY) {
+                    fprintf(stderr, "❌ EGL: Failed to get display\n");
+                    free(ctx);
+                    return false;
+                }
+            
+                if (!eglInitialize(ctx->display, NULL, NULL)) {
+                    fprintf(stderr, "❌ EGL: Failed to initialize\n");
+                    free(ctx);
+                    return false;
+                }
+            
+                const EGLint config_attribs[] = {
+                    EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+                    EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
+                    EGL_RED_SIZE, 8,
+                    EGL_GREEN_SIZE, 8,
+                    EGL_BLUE_SIZE, 8,
+                    EGL_DEPTH_SIZE, 24,
+                    EGL_NONE
+                };
+            
+                EGLConfig config;
+                EGLint num_configs;
+                if (!eglChooseConfig(ctx->display, config_attribs, &config, 1, &num_configs) || num_configs == 0) {
+                    fprintf(stderr, "❌ EGL: Failed to choose config for OpenGL\n");
+                    eglTerminate(ctx->display);
+                    free(ctx);
+                    return false;
+                }
+            
+                ctx->surface = eglCreateWindowSurface(ctx->display, config, (EGLNativeWindowType)ctx->wl_surface, NULL);
+                if (ctx->surface == EGL_NO_SURFACE) {
+                    fprintf(stderr, "❌ EGL: Failed to create window surface\n");
+                    eglTerminate(ctx->display);
+                    free(ctx);
+                    return false;
+                }
+            
+                const EGLint ctx_attribs[] = {
+                    EGL_CONTEXT_CLIENT_VERSION, 3,
+                    EGL_NONE
+                };
+            
+                ctx->context = eglCreateContext(ctx->display, config, EGL_NO_CONTEXT, ctx_attribs);
+                if (ctx->context == EGL_NO_CONTEXT) {
+                    fprintf(stderr, "❌ EGL: Failed to create OpenGL context\n");
+                    eglDestroySurface(ctx->display, ctx->surface);
+                    eglTerminate(ctx->display);
+                    free(ctx);
+                    return false;
+                }
+            
+                if (!eglMakeCurrent(ctx->display, ctx->surface, ctx->surface, ctx->context)) {
+                    fprintf(stderr, "❌ EGL: Failed to make context current\n");
+                    eglDestroyContext(ctx->display, ctx->context);
+                    eglDestroySurface(ctx->display, ctx->surface);
+                    eglTerminate(ctx->display);
+                    free(ctx);
+                    return false;
+                }
+            
+                g_current_context = ctx;
+                printf("✅ EGL + OpenGL context created on Wayland\n");
+                return true;
+            }
+            
+            static void egl_make_current(void) {
+                if (g_current_context)
+                    eglMakeCurrent(g_current_context->display, g_current_context->surface,
+                                   g_current_context->surface, g_current_context->context);
+            }
+            
+            static void egl_swap_buffers(void) {
+                if (g_current_context)
+                    eglSwapBuffers(g_current_context->display, g_current_context->surface);
+            }
+            
+            static void egl_destroy(void) {
+                if (!g_current_context) return;
+                eglMakeCurrent(g_current_context->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+                eglDestroyContext(g_current_context->display, g_current_context->context);
+                eglDestroySurface(g_current_context->display, g_current_context->surface);
+                eglTerminate(g_current_context->display);
+                free(g_current_context);
+                g_current_context = NULL;
+                printf("✅ EGL OpenGL context destroyed\n");
+            }
+            
+            GLContext* glcontext_create_for_platform(void* native_window, int width, int height) {
+                if (!egl_init(native_window, width, height)) return NULL;
+                return g_current_context;
+            }
+            
+            void glcontext_destroy(void) { egl_destroy(); }
+            bool glcontext_is_initialized(void) { return g_current_context != NULL; }
+            void glcontext_set_current_context(GLContext* ctx) { g_current_context = ctx; }            ────────────────────────────
+        📁 win32
+            📄 glcontext_wgl.c
+            ────────────────────────────
+            #define WIN32_LEAN_AND_MEAN
+            #include "render/opengl/glcontext.h"
+            #include <windows.h>
+            #include <GL/gl.h>
+            #include <GL/wglext.h>
+            #include <stdlib.h>
+            #include <stdio.h>
+            #include <string.h>
+            
+            
+            typedef HGLRC (WINAPI * PFNWGLCREATECONTEXTATTRIBSARBPROC)(HDC hDC, HGLRC hShareContext, const int *attribList);
+            
+            typedef HGLRC (WINAPI * PFNWGLCREATECONTEXTATTRIBSARBPROC)(HDC, HGLRC, const int*);
+            typedef BOOL (WINAPI * PFNWGLCHOOSEPIXELFORMATARBPROC)(HDC, const int*, const FLOAT*, UINT, int*, UINT*);
+            
+            struct GLContext {
+                HDC hdc;
+                HGLRC hglrc;
+                HWND hwnd;
+                PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB;
+                PFNWGLCHOOSEPIXELFORMATARBPROC wglChoosePixelFormatARB;
+            };
+            
+            static GLContext* g_current_context = NULL;
+            
+            
+            static bool load_wgl_extensions(HDC hdc) {
+                
+                HGLRC temp_ctx = wglCreateContext(hdc);
+                if (!temp_ctx) return false;
+                
+                wglMakeCurrent(hdc, temp_ctx);
+                
+                
+                PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = 
+                    (PFNWGLCREATECONTEXTATTRIBSARBPROC)wglGetProcAddress("wglCreateContextAttribsARB");
+                PFNWGLCHOOSEPIXELFORMATARBPROC wglChoosePixelFormatARB = 
+                    (PFNWGLCHOOSEPIXELFORMATARBPROC)wglGetProcAddress("wglChoosePixelFormatARB");
+                
+                wglMakeCurrent(NULL, NULL);
+                wglDeleteContext(temp_ctx);
+                
+                return wglCreateContextAttribsARB && wglChoosePixelFormatARB;
+            }
+            
+            static bool wgl_init(void* native_window, int width, int height) {
+                HWND hwnd = (HWND)native_window;
+                if (!hwnd || !IsWindow(hwnd)) {
+                    fprintf(stderr, "WGL: Invalid native window\n");
+                    return false;
+                }
+                
+                GLContext* ctx = (GLContext*)calloc(1, sizeof(GLContext));
+                if (!ctx) return false;
+                
+                ctx->hwnd = hwnd;
+                ctx->hdc = GetDC(hwnd);
+                if (!ctx->hdc) {
+                    fprintf(stderr, "WGL: Failed to get device context\n");
+                    free(ctx);
+                    return false;
+                }
+                
+                
+                if (!load_wgl_extensions(ctx->hdc)) {
+                    fprintf(stderr, "WGL: Failed to load extensions\n");
+                    ReleaseDC(hwnd, ctx->hdc);
+                    free(ctx);
+                    return false;
+                }
+                
+                
+                const int pixel_attribs[] = {
+                    WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+                    WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+                    WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
+                    WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
+                    WGL_COLOR_BITS_ARB, 32,
+                    WGL_DEPTH_BITS_ARB, 24,
+                    WGL_STENCIL_BITS_ARB, 8,
+                    WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB,
+                    0
+                };
+                
+                int pixel_format;
+                UINT num_formats;
+                
+                PFNWGLCHOOSEPIXELFORMATARBPROC wglChoosePixelFormatARB = 
+                    (PFNWGLCHOOSEPIXELFORMATARBPROC)wglGetProcAddress("wglChoosePixelFormatARB");
+                
+                if (!wglChoosePixelFormatARB(ctx->hdc, pixel_attribs, NULL, 1, &pixel_format, &num_formats) || num_formats == 0) {
+                    fprintf(stderr, "WGL: Failed to choose pixel format with ARB\n");
+                    
+                    PIXELFORMATDESCRIPTOR pfd = {
+                        sizeof(PIXELFORMATDESCRIPTOR), 1,
+                        PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
+                        PFD_TYPE_RGBA, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 8, 0,
+                        PFD_MAIN_PLANE, 0, 0, 0, 0
+                    };
+                    
+                    pixel_format = ChoosePixelFormat(ctx->hdc, &pfd);
+                    if (!pixel_format) {
+                        fprintf(stderr, "WGL: Failed to choose fallback pixel format\n");
+                        ReleaseDC(hwnd, ctx->hdc);
+                        free(ctx);
+                        return false;
+                    }
+                }
+                
+                if (!SetPixelFormat(ctx->hdc, pixel_format, NULL)) {
+                    fprintf(stderr, "WGL: Failed to set pixel format\n");
+                    ReleaseDC(hwnd, ctx->hdc);
+                    free(ctx);
+                    return false;
+                }
+                
+                
+                PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = 
+                    (PFNWGLCREATECONTEXTATTRIBSARBPROC)wglGetProcAddress("wglCreateContextAttribsARB");
+                
+                if (wglCreateContextAttribsARB) {
+                    int context_attribs[] = {
+                        WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
+                        WGL_CONTEXT_MINOR_VERSION_ARB, 6,
+                        WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+                        WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
+                        0
+                    };
+                    
+                    ctx->hglrc = wglCreateContextAttribsARB(ctx->hdc, 0, context_attribs);
+                }
+                
+                
+                if (!ctx->hglrc) {
+                    ctx->hglrc = wglCreateContext(ctx->hdc);
+                }
+                
+                if (!ctx->hglrc) {
+                    fprintf(stderr, "WGL: Failed to create OpenGL context\n");
+                    ReleaseDC(hwnd, ctx->hdc);
+                    free(ctx);
+                    return false;
+                }
+                
+                if (!wglMakeCurrent(ctx->hdc, ctx->hglrc)) {
+                    fprintf(stderr, "WGL: Failed to make context current\n");
+                    wglDeleteContext(ctx->hglrc);
+                    ReleaseDC(hwnd, ctx->hdc);
+                    free(ctx);
+                    return false;
+                }
+                
+                
+                ctx->wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC)
+                    wglGetProcAddress("wglCreateContextAttribsARB");
+                ctx->wglChoosePixelFormatARB = (PFNWGLCHOOSEPIXELFORMATARBPROC)
+                    wglGetProcAddress("wglChoosePixelFormatARB");
+                
+                g_current_context = ctx;
+                
+                printf("✅ WGL Context initialized successfully\n");
+                printf("✅ OpenGL Vendor: %s\n", glGetString(GL_VENDOR));
+                printf("✅ OpenGL Renderer: %s\n", glGetString(GL_RENDERER));
+                printf("✅ OpenGL Version: %s\n", glGetString(GL_VERSION));
+                
+                return true;
+            }
+            
+            static void wgl_make_current(void) {
+                if (!g_current_context) return;
+                wglMakeCurrent(g_current_context->hdc, g_current_context->hglrc);
+            }
+            
+            static void wgl_swap_buffers(void) {
+                if (!g_current_context) return;
+                SwapBuffers(g_current_context->hdc);
+            }
+            
+            static void wgl_destroy(void) {
+                if (!g_current_context) return;
+            
+                wglMakeCurrent(NULL, NULL);
+                wglDeleteContext(g_current_context->hglrc);
+                ReleaseDC(g_current_context->hwnd, g_current_context->hdc);
+            
+                free(g_current_context);
+                g_current_context = NULL;
+                printf("✅ WGL Context destroyed\n");
+            }
+            
+            static void* wgl_get_proc_address(const char* name) {
+                return (void*)wglGetProcAddress(name);
+            }
+            
+            GLContextInterface g_wgl_interface = {
+                .init = wgl_init,
+                .make_current = wgl_make_current,
+                .swap_buffers = wgl_swap_buffers,
+                .destroy = wgl_destroy,
+                .get_proc_address = wgl_get_proc_address
+            };
+            
+            GLContext* glcontext_create_for_platform(void* native_window, int width, int height) {
+                if (!g_wgl_interface.init(native_window, width, height)) {
+                    return NULL;
+                }
+                return g_current_context;
+            }
+            
+            void glcontext_destroy(void) {
+                if (g_current_context) {
+                    g_current_context->destroy();
+                }
+            }
+            
+            bool glcontext_is_initialized(void) {
+                return g_current_context != NULL;
+            }
+            
+            void glcontext_set_current_context(GLContext* ctx) {
+                g_current_context = ctx;
+            }
+            ────────────────────────────
+        📁 x11
+            📄 glcontext_glx.c
+            ────────────────────────────
+            #include "render/opengl/glcontext.h"
+            #include <GL/gl.h>
+            #include <GL/glx.h>
+            #include <X11/Xlib.h>
+            #include <stdlib.h>
+            #include <stdio.h>
+            #include <string.h>
+            
+            struct GLContext {
+                Display* display;
+                Window window;
+                GLXContext context;
+                XVisualInfo* vi;
+                GLXFBConfig fbconfig;
+            };
+            
+            static GLContext* g_current_context = NULL;
+            
+            static GLXFBConfig get_fbconfig_from_visual(Display* display, XVisualInfo* vi) {
+                int fbcount;
+                GLXFBConfig* fbc = glXChooseFBConfig(display, DefaultScreen(display), NULL, &fbcount);
+                if (!fbc) return NULL;
+            
+                GLXFBConfig result = NULL;
+                for (int i = 0; i < fbcount; i++) {
+                    XVisualInfo* visual = glXGetVisualFromFBConfig(display, fbc[i]);
+                    if (visual && visual->visualid == vi->visualid) {
+                        result = fbc[i];
+                        XFree(visual);
+                        break;
+                    }
+                    if (visual) XFree(visual);
+                }
+                
+                XFree(fbc);
+                return result;
+            }
+            
+            static bool glx_init(void* native_window, int width, int height) {
+                Window x11_window = (Window)(uintptr_t)native_window;
+                if (!x11_window) {
+                    fprintf(stderr, "GLX: Invalid native window\n");
+                    return false;
+                }
+            
+                GLContext* ctx = (GLContext*)calloc(1, sizeof(GLContext));
+                if (!ctx) return false;
+            
+                ctx->display = XOpenDisplay(NULL);
+                if (!ctx->display) {
+                    fprintf(stderr, "GLX: Failed to open display\n");
+                    free(ctx);
+                    return false;
+                }
+            
+                int attribs[] = {
+                    GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
+                    GLX_CONTEXT_MINOR_VERSION_ARB, 3,
+                    GLX_CONTEXT_PROFILE_MASK_ARB, GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
+                    None
+                };
+            
+                int fb_attribs[] = {
+                    GLX_RENDER_TYPE, GLX_RGBA_BIT,
+                    GLX_DOUBLEBUFFER, True,
+                    GLX_RED_SIZE, 8,
+                    GLX_GREEN_SIZE, 8,
+                    GLX_BLUE_SIZE, 8,
+                    GLX_DEPTH_SIZE, 24,
+                    GLX_STENCIL_SIZE, 8,
+                    None
+                };
+            
+                int glx_major, glx_minor;
+                if (!glXQueryVersion(ctx->display, &glx_major, &glx_minor) ||
+                    (glx_major == 1 && glx_minor < 3)) {
+                    fprintf(stderr, "GLX: Version 1.3 or higher required\n");
+                    XCloseDisplay(ctx->display);
+                    free(ctx);
+                    return false;
+                }
+            
+                ctx->vi = glXChooseVisual(ctx->display, DefaultScreen(ctx->display), fb_attribs);
+                if (!ctx->vi) {
+                    fprintf(stderr, "GLX: Failed to choose visual\n");
+                    XCloseDisplay(ctx->display);
+                    free(ctx);
+                    return false;
+                }
+            
+                ctx->fbconfig = get_fbconfig_from_visual(ctx->display, ctx->vi);
+            
+                PFNGLXCREATECONTEXTATTRIBSARBPROC glXCreateContextAttribsARB = NULL;
+                glXCreateContextAttribsARB = (PFNGLXCREATECONTEXTATTRIBSARBPROC)
+                    glXGetProcAddress((const GLubyte*)"glXCreateContextAttribsARB");
+            
+                if (glXCreateContextAttribsARB && ctx->fbconfig) {
+                    ctx->context = glXCreateContextAttribsARB(ctx->display, ctx->fbconfig, NULL, True, attribs);
+                } else {
+                    ctx->context = glXCreateContext(ctx->display, ctx->vi, NULL, GL_TRUE);
+                }
+            
+                if (!ctx->context) {
+                    fprintf(stderr, "GLX: Failed to create context\n");
+                    XFree(ctx->vi);
+                    XCloseDisplay(ctx->display);
+                    free(ctx);
+                    return false;
+                }
+            
+                if (!glXMakeCurrent(ctx->display, x11_window, ctx->context)) {
+                    fprintf(stderr, "GLX: Failed to make context current\n");
+                    glXDestroyContext(ctx->display, ctx->context);
+                    XFree(ctx->vi);
+                    XCloseDisplay(ctx->display);
+                    free(ctx);
+                    return false;
+                }
+            
+                ctx->window = x11_window;
+                g_current_context = ctx;
+                printf("✅ GLX Context initialized successfully\n");
+                return true;
+            }
+            
+            static void glx_make_current(void) {
+                if (!g_current_context) return;
+                glXMakeCurrent(g_current_context->display, g_current_context->window, g_current_context->context);
+            }
+            
+            static void glx_swap_buffers(void) {
+                if (!g_current_context) return;
+                glXSwapBuffers(g_current_context->display, g_current_context->window);
+            }
+            
+            static void glx_destroy(void) {
+                if (!g_current_context) return;
+            
+                glXMakeCurrent(g_current_context->display, None, NULL);
+                glXDestroyContext(g_current_context->display, g_current_context->context);
+                XFree(g_current_context->vi);
+                XCloseDisplay(g_current_context->display);
+            
+                free(g_current_context);
+                g_current_context = NULL;
+                printf("✅ GLX Context destroyed\n");
+            }
+            
+            static void* glx_get_proc_address(const char* name) {
+                return (void*)glXGetProcAddress((const GLubyte*)name);
+            }
+            
+            GLContextInterface g_glx_interface = {
+                .init = glx_init,
+                .make_current = glx_make_current,
+                .swap_buffers = glx_swap_buffers,
+                .destroy = glx_destroy,
+                .get_proc_address = glx_get_proc_address
+            };
+            
+            GLContext* glcontext_create_for_platform(void* native_window, int width, int height) {
+                if (!g_glx_interface.init(native_window, width, height)) {
+                    return NULL;
+                }
+                return g_current_context;
+            }
+            
+            void glcontext_destroy(void) {
+                if (g_current_context) {
+                    glx_destroy();
+                }
+            }
+            
+            bool glcontext_is_initialized(void) {
+                return g_current_context != NULL;
+            }
+            
+            void glcontext_set_current_context(GLContext* ctx) {
+                g_current_context = ctx;
+            }
+            ────────────────────────────
+    📄 rhiglbackend.c
+    ────────────────────────────
+    #include "rhiglbackend.h"
+    #include "glcontext.h"
+    #include "pdk/pdkwindow.h"
+    #include <stdlib.h>
+    #include <stdio.h>
+    
+    typedef struct {
+        PlumRhi base;
+        GLContext* gl_context;
+        PdkWindow* window;  // ← сохраняем окно
+    } GLBackend;
+    
+    // Объявления
+    static bool is_opengl_available(void);
+    static PlumRhi* create_opengl(const PlumRhiVersion* requested_version);
+    static PlumRhi* create_opengl_for_window(const PlumRhiVersion* requested_version, PdkWindow* window);
+    static void destroy_opengl(PlumRhi* rhi);
+    
+    // Информация о бэкенде
+    static const PlumRhiInfo g_gl_info = {
+        PLUM_RHI_OPENGL,
+        "OpenGL",
+        {4, 6},
+        80,
+        is_opengl_available,
+        create_opengl,
+        destroy_opengl
+    };
+    
+    // Новая функция: создаёт RHI с окном
+    static const PlumRhiInfo g_gl_info_for_window = {
+        PLUM_RHI_OPENGL,
+        "OpenGL",
+        {4, 6},
+        80,
+        is_opengl_available,
+        (PlumRhiCreateFn)create_opengl_for_window,  // ← кастим, чтобы совпал тип
+        destroy_opengl
+    };
+    
+    // Доступность
+    static bool is_opengl_available(void) {
+        return true;
+    }
+    
+    // Старая функция (для совместимости, но не используется при нормальном запуске)
+    static PlumRhi* create_opengl(const PlumRhiVersion* requested_version) {
+        fprintf(stderr, "❌ OpenGL: create_opengl() called without window — this is not supported.\n");
+        return NULL;
+    }
+    
+    // ✅ НОВАЯ ОСНОВНАЯ ФУНКЦИЯ
+    static PlumRhi* create_opengl_for_window(const PlumRhiVersion* requested_version, PdkWindow* window) {
+        if (!window) {
+            fprintf(stderr, "❌ OpenGL: PdkWindow is NULL\n");
+            return NULL;
+        }
+    
+        if (requested_version->major > 4 || (requested_version->major == 4 && requested_version->minor > 6)) {
+            fprintf(stderr, "❌ OpenGL: requested version %d.%d not supported\n",
+                    requested_version->major, requested_version->minor);
+            return NULL;
+        }
+    
+        GLBackend* backend = (GLBackend*)malloc(sizeof(GLBackend));
+        if (!backend) return NULL;
+    
+        backend->window = window;
+        backend->gl_context = glcontext_create_for_platform(window, 800, 600);  // ← передаём window!
+    
+        if (!backend->gl_context) {
+            free(backend);
+            return NULL;
+        }
+    
+        backend->base.info = &g_gl_info_for_window;
+        backend->base.version = *requested_version;
+    
+        printf("✅ Created OpenGL backend with version %d.%d\n", 
+               requested_version->major, requested_version->minor);
+        return &backend->base;
+    }
+    
+    static void destroy_opengl(PlumRhi* rhi) {
+        if (!rhi) return;
+        GLBackend* backend = (GLBackend*)rhi;
+        if (backend->gl_context) {
+            glcontext_destroy();
+        }
+        free(backend);
+    }
+    
+    // Регистрация
+    __attribute__((constructor))
+    static void register_opengl(void) {
+        plum_rhi_register(&g_gl_info_for_window);  // ← регистрируем версию с поддержкой окна
+    }    ────────────────────────────
+    📄 rhiglbackend.h
+    ────────────────────────────
+    #ifndef PLUM_RHI_GL_BACKEND_H
+    #define PLUM_RHI_GL_BACKEND_H
+    
+    #include "rhi.h"
+    #include "pdk/pdktypes.h"
+    
+    PlumRhi* plum_rhi_create_highest_version_for_window(PlumRhiId id, PdkWindow* window);
+    PlumRhi* plum_rhi_create_highest_version_by_name_for_window(const char* name, PdkWindow* window);
+    PlumRhi* plum_rhi_create_from_chain_for_window(const char* chain, PdkWindow* window);
+    PlumRhi* plum_rhi_autoselect_default_for_window(PdkWindow* window);
+    
+    #endif /* PLUM_RHI_GL_BACKEND_H */
+    ────────────────────────────
+📁 opengles
+    📁 pane
+        📄 glescontext_plumpane.c
+        ────────────────────────────
+        ────────────────────────────
+    📁 quartz
+        📄 glescontext_macos.c
+        ────────────────────────────
+        ────────────────────────────
+    📁 wayland
+        📄 glescontext_wayland.c
+        ────────────────────────────
+        
+        #include "render/opengl/glcontext.h"
+        #include <EGL/egl.h>
+        #include <GLES2/gl2.h>
+        #include <wayland-client.h>
+        #include <stdlib.h>
+        #include <stdio.h>
+        #include "pdk/pdkwindow.h"
+        
+        struct GLContext {
+            EGLDisplay display;
+            EGLContext context;
+            EGLSurface surface;
+            struct wl_surface* wl_surface;
+        };
+        
+        static struct GLContext* g_current_context = NULL;
+        
+        static bool gles_init(void* native_window, int width, int height) {
+            PdkWindow* pdk_win = (PdkWindow*)native_window;
+            if (!pdk_win || !pdk_win->surface) {
+                fprintf(stderr, "❌ GLES: Invalid PdkWindow or surface\n");
+                return false;
+            }
+        
+            struct GLContext* ctx = calloc(1, sizeof(struct GLContext));
+            if (!ctx) return false;
+        
+            ctx->wl_surface = pdk_win->surface;
+            ctx->display = eglGetDisplay((EGLNativeDisplayType)pdk_win->display);
+            if (ctx->display == EGL_NO_DISPLAY) goto fail;
+        
+            if (!eglInitialize(ctx->display, NULL, NULL)) {
+                fprintf(stderr, "❌ GLES: eglInitialize failed\n");
+                goto fail;
+            }
+        
+            const EGLint attribs[] = {
+                EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+                EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+                EGL_RED_SIZE, 8,
+                EGL_GREEN_SIZE, 8,
+                EGL_BLUE_SIZE, 8,
+                EGL_DEPTH_SIZE, 16,
+                EGL_NONE
+            };
+        
+            EGLConfig config;
+            EGLint num;
+            if (!eglChooseConfig(ctx->display, attribs, &config, 1, &num) || num == 0) {
+                fprintf(stderr, "❌ GLES: Failed to choose config\n");
+                goto fail;
+            }
+        
+            ctx->surface = eglCreateWindowSurface(ctx->display, config, (EGLNativeWindowType)ctx->wl_surface, NULL);
+            if (ctx->surface == EGL_NO_SURFACE) {
+                fprintf(stderr, "❌ GLES: Failed to create window surface\n");
+                goto fail;
+            }
+        
+            const EGLint ctx_attribs[] = {
+                EGL_CONTEXT_CLIENT_VERSION, 2,
+                EGL_NONE
+            };
+        
+            ctx->context = eglCreateContext(ctx->display, config, EGL_NO_CONTEXT, ctx_attribs);
+            if (ctx->context == EGL_NO_CONTEXT) {
+                fprintf(stderr, "❌ GLES: Failed to create context\n");
+                goto fail;
+            }
+        
+            if (!eglMakeCurrent(ctx->display, ctx->surface, ctx->surface, ctx->context)) {
+                fprintf(stderr, "❌ GLES: Failed to make context current\n");
+                goto fail;
+            }
+        
+            g_current_context = ctx;
+            printf("✅ OpenGL ES 2.0 context created on Wayland\n");
+            return true;
+        
+        fail:
+            if (ctx->context) eglDestroyContext(ctx->display, ctx->context);
+            if (ctx->surface) eglDestroySurface(ctx->display, ctx->surface);
+            if (ctx->display != EGL_NO_DISPLAY) eglTerminate(ctx->display);
+            free(ctx);
+            return false;
+        }
+        
+        static void gles_make_current(void) {
+            if (g_current_context) {
+                eglMakeCurrent(g_current_context->display,
+                               g_current_context->surface,
+                               g_current_context->surface,
+                               g_current_context->context);
+            }
+        }
+        
+        static void gles_swap_buffers(void) {
+            if (g_current_context) {
+                eglSwapBuffers(g_current_context->display, g_current_context->surface);
+            }
+        }
+        
+        static void gles_destroy(void) {
+            if (!g_current_context) return;
+        
+            eglMakeCurrent(g_current_context->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+            eglDestroyContext(g_current_context->display, g_current_context->context);
+            eglDestroySurface(g_current_context->display, g_current_context->surface);
+            eglTerminate(g_current_context->display);
+        
+            free(g_current_context);
+            g_current_context = NULL;
+            printf("✅ OpenGL ES context destroyed\n");
+        }
+        
+        static void* gles_get_proc_address(const char* name) {
+            return (void*)eglGetProcAddress(name);
+        }
+        
+        
+        GLContextInterface g_gles_interface = {
+            .init = gles_init,
+            .make_current = gles_make_current,
+            .swap_buffers = gles_swap_buffers,
+            .destroy = gles_destroy,
+            .get_proc_address = gles_get_proc_address
+        };
+        
+        
+        GLContext* glcontext_create_for_platform(void* native_window, int width, int height) {
+            if (!g_gles_interface.init(native_window, width, height)) {
+                return NULL;
+            }
+            return g_current_context;
+        }
+        
+        void glcontext_destroy(void) {
+            if (g_current_context) {
+                g_gles_interface.destroy();
+            }
+        }
+        
+        bool glcontext_is_initialized(void) {
+            return g_current_context != NULL;
+        }
+        
+        void glcontext_set_current_context(GLContext* ctx) {
+            g_current_context = ctx;
+        }        ────────────────────────────
+    📁 win32
+        📄 glescontext_win32.c
+        ────────────────────────────
+        #include "glcontext.h"
+        #include <OpenGL/OpenGL.h>
+        #include <OpenGL/CGLTypes.h>
+        #include <stdlib.h>
+        #include <stdio.h>
+        
+        struct GLContext {
+            CGLContextObj context;
+            CGLPixelFormatObj pixel_format;
+        };
+        
+        static GLContext* g_current_context = NULL;
+        
+        static bool cgl_init(void* native_window, int width, int height) {
+            
+            
+            (void)native_window;
+            (void)width;
+            (void)height;
+        
+            GLContext* ctx = (GLContext*)calloc(1, sizeof(GLContext));
+            if (!ctx) return false;
+        
+            
+            CGLPixelFormatAttribute attribs[] = {
+                kCGLPFAOpenGLProfile,
+                (CGLPixelFormatAttribute)kCGLOGLPVersion_3_2_Core,
+                kCGLPFAColorSize, (CGLPixelFormatAttribute)24,
+                kCGLPFAAlphaSize, (CGLPixelFormatAttribute)8,
+                kCGLPFADepthSize, (CGLPixelFormatAttribute)24,
+                kCGLPFAStencilSize, (CGLPixelFormatAttribute)8,
+                kCGLPFAAccelerated,
+                kCGLPFADoubleBuffer,
+                (CGLPixelFormatAttribute)0
+            };
+        
+            GLint num_pixel_formats;
+            CGLError error = CGLChoosePixelFormat(attribs, &ctx->pixel_format, &num_pixel_formats);
+            if (error != kCGLNoError || !ctx->pixel_format) {
+                fprintf(stderr, "CGL: Failed to choose pixel format: %s\n", CGLErrorString(error));
+                free(ctx);
+                return false;
+            }
+        
+            error = CGLCreateContext(ctx->pixel_format, NULL, &ctx->context);
+            if (error != kCGLNoError || !ctx->context) {
+                fprintf(stderr, "CGL: Failed to create context: %s\n", CGLErrorString(error));
+                CGLDestroyPixelFormat(ctx->pixel_format);
+                free(ctx);
+                return false;
+            }
+        
+            error = CGLSetCurrentContext(ctx->context);
+            if (error != kCGLNoError) {
+                fprintf(stderr, "CGL: Failed to make context current: %s\n", CGLErrorString(error));
+                CGLDestroyContext(ctx->context);
+                CGLDestroyPixelFormat(ctx->pixel_format);
+                free(ctx);
+                return false;
+            }
+        
+            g_current_context = ctx;
+            printf("✅ CGL Context initialized successfully\n");
+            return true;
+        }
+        
+        static void cgl_make_current(void) {
+            if (!g_current_context) return;
+            CGLSetCurrentContext(g_current_context->context);
+        }
+        
+        static void cgl_swap_buffers(void) {
+            if (!g_current_context) return;
+            CGLFlushDrawable(g_current_context->context);
+        }
+        
+        static void cgl_destroy(void) {
+            if (!g_current_context) return;
+        
+            CGLSetCurrentContext(NULL);
+            CGLDestroyContext(g_current_context->context);
+            CGLDestroyPixelFormat(g_current_context->pixel_format);
+        
+            free(g_current_context);
+            g_current_context = NULL;
+            printf("✅ CGL Context destroyed\n");
+        }
+        
+        static void* cgl_get_proc_address(const char* name) {
+            
+            
+            if (g_current_context) {
+                return (void*)CGLGetProcAddress(g_current_context->context, (const GLubyte*)name);
+            }
+            return NULL;
+        }
+        
+        GLContextInterface g_cgl_interface = {
+            .init = cgl_init,
+            .make_current = cgl_make_current,
+            .swap_buffers = cgl_swap_buffers,
+            .destroy = cgl_destroy,
+            .get_proc_address = cgl_get_proc_address
+        };
+        
+        GLContext* glcontext_create_for_platform(void* native_window, int width, int height) {
+            if (!g_cgl_interface.init(native_window, width, height)) {
+                return NULL;
+            }
+            return g_current_context;
+        }
+        
+        void glcontext_destroy(void) {
+            if (g_current_context) {
+                g_current_context->destroy();
+            }
+        }
+        
+        bool glcontext_is_initialized(void) {
+            return g_current_context != NULL;
+        }
+        
+        void glcontext_set_current_context(GLContext* ctx) {
+            g_current_context = ctx;
+        }
+        ────────────────────────────
+    📁 x11
+        📄 glescontext_x11.c
+        ────────────────────────────
+        ────────────────────────────
+📄 rhi.c
+────────────────────────────
+#include "rhi.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+static PlumRhi* default_rhi = NULL;
+
+PlumRhi* plum_get_rhi_context(void) {
+    return default_rhi;
+}────────────────────────────
+📄 rhi.h
+────────────────────────────
+/* ── PlumX/PlumUI/src/render/rhi.h ─────────────────────────────────────────── */
+#ifndef PLUM_RHI_H
+#define PLUM_RHI_H
+
+#include "plumconfig.h"
+#include <stdbool.h>
+
+typedef enum {
+    PLUM_RHI_NONE,
+    PLUM_RHI_OPENGL,
+    PLUM_RHI_VULKAN,
+    PLUM_RHI_D3D12,
+    PLUM_RHI_METAL,
+    PLUM_RHI_OPENGLES,
+    PLUM_RHI_OPENCL,
+    PLUM_RHI_PIREON,
+    PLUM_RHI_PLUMPAINT
+} PlumRhiId;
+
+typedef struct {
+    int major;
+    int minor;
+    int patch;
+} PlumRhiVersion;
+
+typedef struct PlumRhi PlumRhi;
+
+typedef PlumRhi* (*PlumRhiCreateFn)(const PlumRhiVersion*);
+typedef void (*PlumRhiDestroyFn)(PlumRhi*);
+
+typedef struct {
+    PlumRhiId id;
+    const char* name;
+    PlumRhiVersion version;
+    int priority;
+    bool (*available)(void);
+    PlumRhiCreateFn create;
+    PlumRhiDestroyFn destroy;
+} PlumRhiInfo;
+
+typedef void (*PlumRhiDestroyFn)(PlumRhi*);
+
+struct PlumRhi {
+    const PlumRhiInfo* info;
+    PlumRhiVersion version;
+};
+
+void plum_rhi_register(const PlumRhiInfo* info);
+PlumRhi* plum_rhi_create_highest_version_by_name(const char* name);
+PlumRhi* plum_rhi_create_from_chain(const char* chain);
+PlumRhi* plum_rhi_select_best(void);
+PlumRhi* plum_rhi_autoselect_default(void);
+PlumRhi* plum_get_rhi_context(void);
+
+#endif /* PLUM_RHI_H */
+────────────────────────────
+📄 rhi_registry.c
+────────────────────────────
+/* ── PlumX/PlumUI/src/render/rhi_registry.c ─────────────────────────────────────────── */
+#include "rhi_registry.h"
+#include "plumallocator.h"
+#include "core/plum.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+#define MAX_BACKENDS 32
+
+static const PlumRhiInfo* g_backends[MAX_BACKENDS];
+static size_t g_backend_count = 0;
+static bool g_initialized = false;
+
+void plum_rhi_register(const PlumRhiInfo* info) {
+    if (g_backend_count >= MAX_BACKENDS || !info || !info->available) return;
+    g_backends[g_backend_count++] = info;
+}
+
+PlumRhi* plum_rhi_create_highest_version(PlumRhiId id) {
+    const PlumRhiInfo* best_info = NULL;
+    PlumRhiVersion max_version = {0, 0};
+    
+    
+    for (size_t i = 0; i < g_backend_count; i++) {
+        if (g_backends[i]->id == id) {
+            if (g_backends[i]->version.major > max_version.major || 
+               (g_backends[i]->version.major == max_version.major && 
+                g_backends[i]->version.minor > max_version.minor)) {
+                best_info = g_backends[i];
+                max_version = g_backends[i]->version;
+            }
+        }
+    }
+    
+    if (!best_info) return NULL;
+    
+    
+    PlumRhi* rhi = best_info->create(&max_version);
+    if (rhi) {
+        rhi->version = max_version;
+        return rhi;
+    }
+    
+    
+    PlumRhiVersion try_version = max_version;
+    while (try_version.major > 0 || try_version.minor > 0) {
+        
+        if (try_version.minor > 0) {
+            try_version.minor--;
+        } else {
+            try_version.major--;
+            try_version.minor = 99; 
+        }
+        
+        
+        if (try_version.major > max_version.major || 
+           (try_version.major == max_version.major && 
+            try_version.minor > max_version.minor)) {
+            continue;
+        }
+        
+        
+        for (size_t i = 0; i < g_backend_count; i++) {
+            if (g_backends[i]->id == id && 
+                g_backends[i]->version.major == try_version.major &&
+                g_backends[i]->version.minor >= try_version.minor) {
+                rhi = g_backends[i]->create(&try_version);
+                if (rhi) {
+                    rhi->version = try_version;
+                    return rhi;
+                }
+            }
+        }
+    }
+    
+    return NULL;
+}
+
+PlumRhi* plum_rhi_create_highest_version_by_name(const char* name) {
+    PlumRhiId id = PLUM_RHI_NONE;
+    
+    if (strcmp(name, "Vulkan") == 0) id = PLUM_RHI_VULKAN;
+    else if (strcmp(name, "OpenGL") == 0) id = PLUM_RHI_OPENGL;
+    else if (strcmp(name, "OpenGLES") == 0) id = PLUM_RHI_OPENGLES;
+    else if (strcmp(name, "D3D12") == 0) id = PLUM_RHI_D3D12;
+    else if (strcmp(name, "Metal") == 0) id = PLUM_RHI_METAL;
+    
+    if (id == PLUM_RHI_NONE) {
+        fprintf(stderr, "Unknown RHI backend: %s\n", name);
+        return NULL;
+    }
+    
+    return plum_rhi_create_highest_version(id);
+}
+
+PlumRhi* plum_rhi_create_from_chain(const char* chain) {
+    if (!chain || !*chain) return NULL;
+    
+    char* chain_copy = strdup(chain);
+    if (!chain_copy) return NULL;
+    
+    char* token = strtok(chain_copy, ",>");
+    PlumRhi* rhi = NULL;
+    
+    while (token) {
+        
+        while (*token == ' ') token++;
+        
+        rhi = plum_rhi_create_highest_version_by_name(token);
+        if (rhi) break;
+        
+        token = strtok(NULL, ",>");
+    }
+    
+    free(chain_copy);
+    return rhi;
+}
+
+PlumRhi* plum_rhi_create_highest_version_by_name_for_window(const char* name, PdkWindow* window) {
+    PlumRhiId id = PLUM_RHI_NONE;
+    if (strcmp(name, "Vulkan") == 0) id = PLUM_RHI_VULKAN;
+    else if (strcmp(name, "OpenGL") == 0) id = PLUM_RHI_OPENGL;
+    else if (strcmp(name, "OpenGLES") == 0) id = PLUM_RHI_OPENGLES;
+    else if (strcmp(name, "D3D12") == 0) id = PLUM_RHI_D3D12;
+    else if (strcmp(name, "Metal") == 0) id = PLUM_RHI_METAL;
+    if (id == PLUM_RHI_NONE) {
+        fprintf(stderr, "Unknown RHI backend: %s\n", name);
+        return NULL;
+    }
+    return plum_rhi_create_highest_version_for_window(id, window);
+}
+
+PlumRhi* plum_rhi_autoselect_default(void) {
+    
+    const char* default_chain = "D3D12,Vulkan,OpenGL,Metal";
+    PlumRhi* rhi = plum_rhi_create_from_chain(default_chain);
+    
+    if (!rhi) {
+        
+        rhi = plum_rhi_create_highest_version(PLUM_RHI_OPENGLES);
+    }
+    
+    return rhi;
+}
+
+PlumRhi* plum_rhi_create_specific_version(PlumRhiId id, int major, int minor) {
+    PlumRhiVersion requested = {major, minor};
+    
+    for (size_t i = 0; i < g_backend_count; i++) {
+        if (g_backends[i]->id == id) {
+            PlumRhi* rhi = g_backends[i]->create(&requested);
+            if (rhi) {
+                printf("Created %s version %d.%d\n", 
+                       g_backends[i]->name, major, minor);
+                return rhi;
+            }
+        }
+    }
+    
+    
+    return plum_rhi_create_highest_version(id);
+}
+
+void plum_rhi_init_registry(void) {
+    if (g_initialized) return;
+    g_initialized = true;
+    
+    
+    
+}
+
+void plum_rhi_shutdown_registry(void) {
+    g_backend_count = 0;
+    g_initialized = false;
+}
+────────────────────────────
+📄 rhi_registry.h
+────────────────────────────
+/* ── PlumX/PlumUI/src/render/rhi_registry.h ─────────────────────────────────────────── */
+#pragma once
+#include "rhi.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+PLUM_API void plum_rhi_register(const PlumRhiInfo* info);
+PLUM_API PlumRhi* plum_rhi_create_highest_version(PlumRhiId id);
+PLUM_API PlumRhi* plum_rhi_create_highest_version_by_name(const char* name);
+PLUM_API PlumRhi* plum_rhi_create_from_chain(const char* chain);
+PLUM_API PlumRhi* plum_rhi_autoselect_default(void);
+PLUM_API PlumRhi* plum_rhi_create_specific_version(PlumRhiId id, int major, int minor);
+PLUM_API void plum_rhi_init_registry(void);
+PLUM_API void plum_rhi_shutdown_registry(void);
+
+#ifdef __cplusplus
+}
+#endif
+────────────────────────────
+📁 vulkan
+    📁 platform
+        📁 pane
+            📄 vulkan_plumpane.c
+            [binary file skipped]
+        📁 quartz
+            📄 vulkan_macos.c
+            [binary file skipped]
+        📁 wayland
+            📄 vulkan_wayland.c
+            ────────────────────────────
+            #include "render/vulkan/rhivulkanbackend.h"
+            #include <vulkan/vulkan.h>
+            #include <vulkan/vulkan_wayland.h>
+            #include <wayland-client.h>
+            #include <stdlib.h>
+            #include <stdio.h>
+            #include "pdk/pdkwindow.h"
+            
+            struct PdkWindow {
+                struct wl_display* display;
+                struct wl_surface* surface;
+                struct xdg_surface* xdg_surface;
+                struct xdg_toplevel* xdg_toplevel;
+                struct wl_compositor* compositor;
+                struct xdg_wm_base* xdg_wm_base;
+                int width;
+                int height;
+                char* title;
+            };
+            
+            VkSurfaceKHR create_vulkan_surface_wayland(VkInstance instance, void* window_handle) {
+                if (!instance || !window_handle) return VK_NULL_HANDLE;
+            
+                struct PdkWindow* win = (struct PdkWindow*)window_handle;
+                if (!win->display || !win->surface) {
+                    fprintf(stderr, "❌ Wayland: Missing display or surface in PdkWindow\n");
+                    return VK_NULL_HANDLE;
+                }
+            
+                VkWaylandSurfaceCreateInfoKHR create_info = {
+                    .sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
+                    .pNext = NULL,
+                    .flags = 0,
+                    .display = win->display,
+                    .surface = win->surface
+                };
+            
+                VkSurfaceKHR surface;
+                VkResult result = vkCreateWaylandSurfaceKHR(instance, &create_info, NULL, &surface);
+                if (result != VK_SUCCESS) {
+                    fprintf(stderr, "❌ Failed to create Wayland Vulkan surface: %d\n", result);
+                    return VK_NULL_HANDLE;
+                }
+            
+                printf("✅ Vulkan Wayland surface created\n");
+                return surface;
+            }
+            
+            const char** get_wayland_required_extensions(uint32_t* count) {
+                static const char* extensions[] = {
+                    VK_KHR_SURFACE_EXTENSION_NAME,
+                    VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME,
+                    NULL
+                };
+                *count = 2;
+                return extensions;
+            }
+            
+            VkPhysicalDevice select_wayland_physical_device(VkInstance instance) {
+                uint32_t device_count = 0;
+                vkEnumeratePhysicalDevices(instance, &device_count, NULL);
+                if (device_count == 0) return VK_NULL_HANDLE;
+            
+                VkPhysicalDevice* devices = malloc(sizeof(VkPhysicalDevice) * device_count);
+                vkEnumeratePhysicalDevices(instance, &device_count, devices);
+            
+                // Простой выбор первого устройства, поддерживающего графику
+                for (uint32_t i = 0; i < device_count; ++i) {
+                    uint32_t queue_family_count = 0;
+                    vkGetPhysicalDeviceQueueFamilyProperties(devices[i], &queue_family_count, NULL);
+                    VkQueueFamilyProperties* queue_families = malloc(sizeof(VkQueueFamilyProperties) * queue_family_count);
+                    vkGetPhysicalDeviceQueueFamilyProperties(devices[i], &queue_family_count, queue_families);
+            
+                    for (uint32_t j = 0; j < queue_family_count; ++j) {
+                        if (queue_families[j].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+                            free(queue_families);
+                            free(devices);
+                            return devices[i];
+                        }
+                    }
+                    free(queue_families);
+                }
+            
+                free(devices);
+                return VK_NULL_HANDLE;
+            }            ────────────────────────────
+        📁 win32
+            📄 vulkan_win32.c
+            ────────────────────────────
+            #include "rhivulkanbackend.h"
+            #include <vulkan/vulkan_win32.h>
+            #include <windows.h>
+            
+            VkSurfaceKHR create_vulkan_surface_win32(VkInstance instance, void* window_handle) {
+                VkWin32SurfaceCreateInfoKHR create_info = {
+                    .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+                    .hinstance = GetModuleHandle(NULL),
+                    .hwnd = (HWND)window_handle
+                };
+            
+                VkSurfaceKHR surface;
+                if (vkCreateWin32SurfaceKHR(instance, &create_info, NULL, &surface) != VK_SUCCESS) {
+                    return VK_NULL_HANDLE;
+                }
+            
+                return surface;
+            }
+            
+            
+            const char** get_win32_required_extensions(uint32_t* count) {
+                static const char* extensions[] = {
+                    VK_KHR_SURFACE_EXTENSION_NAME,
+                    VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+                    VK_EXT_DEBUG_UTILS_EXTENSION_NAME  
+                };
+                
+                *count = 3;
+                return extensions;
+            }
+            
+            
+            VkPhysicalDevice select_win32_physical_device(VkInstance instance) {
+                uint32_t device_count = 0;
+                vkEnumeratePhysicalDevices(instance, &device_count, NULL);
+                
+                if (device_count == 0) {
+                    return VK_NULL_HANDLE;
+                }
+            
+                VkPhysicalDevice* devices = malloc(sizeof(VkPhysicalDevice) * device_count);
+                vkEnumeratePhysicalDevices(instance, &device_count, devices);
+            
+                
+                VkPhysicalDevice selected_device = VK_NULL_HANDLE;
+                int highest_score = -1;
+            
+                for (uint32_t i = 0; i < device_count; i++) {
+                    VkPhysicalDeviceProperties props;
+                    vkGetPhysicalDeviceProperties(devices[i], &props);
+            
+                    int score = 0;
+                    
+                    
+                    if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+                        score += 1000;
+                    } else if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
+                        score += 500;
+                    }
+            
+                    
+                    score += props.apiVersion;
+            
+                    if (score > highest_score) {
+                        highest_score = score;
+                        selected_device = devices[i];
+                    }
+                }
+            
+                free(devices);
+                return selected_device;
+            }            ────────────────────────────
+        📁 x11
+            📄 vulkan_x11.c
+            ────────────────────────────
+            #ifdef VK_USE_PLATFORM_XLIB_KHR
+            
+            #include "rhivulkanbackend.h"
+            #include <vulkan/vulkan.h>
+            #include <vulkan/vulkan_xlib.h>
+            #include <X11/Xlib.h>
+            #include <stdint.h>
+            #include <stdlib.h>
+            #include <stdio.h>
+            
+            VkSurfaceKHR create_vulkan_surface_x11(VkInstance instance, void* window_handle) {
+                if (!instance || !window_handle) {
+                    return VK_NULL_HANDLE;
+                }
+            
+                
+                Display* display = XOpenDisplay(NULL);
+                if (!display) {
+                    fprintf(stderr, "Failed to open X11 display\n");
+                    return VK_NULL_HANDLE;
+                }
+                
+                
+                VkXlibSurfaceCreateInfoKHR create_info = {
+                    .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
+                    .pNext = NULL,
+                    .flags = 0,
+                    .dpy = display,
+                    .window = (Window)(uintptr_t)window_handle
+                };
+                
+                VkSurfaceKHR surface = VK_NULL_HANDLE;
+                VkResult result = vkCreateXlibSurfaceKHR(instance, &create_info, NULL, &surface);
+                
+                if (result != VK_SUCCESS) {
+                    fprintf(stderr, "Failed to create X11 Vulkan surface: %d\n", result);
+                    XCloseDisplay(display);
+                    return VK_NULL_HANDLE;
+                }
+                
+                
+                
+                printf("✅ X11 Vulkan surface created successfully\n");
+                return surface;
+            }
+            
+            const char** get_x11_required_extensions(uint32_t* count) {
+                static const char* extensions[] = {
+                    VK_KHR_SURFACE_EXTENSION_NAME,
+                    VK_KHR_XLIB_SURFACE_EXTENSION_NAME,
+                    NULL
+                };
+                
+                *count = 2;
+                return extensions;
+            }
+            
+            VkPhysicalDevice select_x11_physical_device(VkInstance instance) {
+                uint32_t device_count = 0;
+                vkEnumeratePhysicalDevices(instance, &device_count, NULL);
+                
+                if (device_count == 0) {
+                    return VK_NULL_HANDLE;
+                }
+            
+                VkPhysicalDevice* devices = malloc(sizeof(VkPhysicalDevice) * device_count);
+                vkEnumeratePhysicalDevices(instance, &device_count, devices);
+            
+                
+                VkPhysicalDevice selected_device = VK_NULL_HANDLE;
+                int highest_score = -1;
+            
+                for (uint32_t i = 0; i < device_count; i++) {
+                    VkPhysicalDeviceProperties props;
+                    vkGetPhysicalDeviceProperties(devices[i], &props);
+            
+                    int score = 0;
+                    
+                    
+                    if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+                        score += 1000;
+                    } else if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
+                        score += 500;
+                    }
+            
+                    
+                    score += props.apiVersion;
+            
+                    if (score > highest_score) {
+                        highest_score = score;
+                        selected_device = devices[i];
+                    }
+                }
+            
+                free(devices);
+                return selected_device;
+            }
+            
+            #endif             ────────────────────────────
+    📄 rhivulkanbackend.c
+    ────────────────────────────
+    
+    #include "rhivulkanbackend.h"
+    #include <vulkan/vulkan.h>
+    #include <stdlib.h>
+    #include <stdio.h>
+    #include <stdint.h>
+    
+    
+    #if defined(VK_USE_PLATFORM_XLIB_KHR)
+    #include <vulkan/vulkan_xlib.h>
+    #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
+    #include <vulkan/vulkan_wayland.h>
+    #elif defined(VK_USE_PLATFORM_WIN32_KHR)
+    #include <vulkan/vulkan_win32.h>
+    #endif
+    
+    typedef struct {
+        PlumRhi base;
+        VkInstance instance;
+        VkPhysicalDevice physical_device;
+        VkDevice device;
+        VkQueue queue;
+        VkSurfaceKHR surface;
+    } VulkanBackend;
+    
+    static bool is_vulkan_available(void) {
+        VkApplicationInfo app_info = {
+            .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+            .pApplicationName = "PlumVulkanCheck",
+            .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
+            .pEngineName = "PlumUI",
+            .engineVersion = VK_MAKE_VERSION(1, 0, 0),
+            .apiVersion = VK_API_VERSION_1_3
+        };
+        
+        VkInstanceCreateInfo create_info = {
+            .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+            .pApplicationInfo = &app_info
+        };
+        
+        VkInstance instance;
+        VkResult result = vkCreateInstance(&create_info, NULL, &instance);
+        if (result == VK_SUCCESS) {
+            vkDestroyInstance(instance, NULL);
+            return true;
+        }
+        return false;
+    }
+    
+    static void destroy_vulkan(PlumRhi* rhi) {
+        if (!rhi) return;
+        VulkanBackend* backend = (VulkanBackend*)rhi;
+        
+        if (backend->surface != VK_NULL_HANDLE) {
+            vkDestroySurfaceKHR(backend->instance, backend->surface, NULL);
+        }
+        if (backend->device) {
+            vkDestroyDevice(backend->device, NULL);
+        }
+        if (backend->instance) {
+            vkDestroyInstance(backend->instance, NULL);
+        }
+        free(backend);
+    }
+    
+    static PlumRhi* create_vulkan(const PlumRhiVersion* requested_version) {
+        printf("Creating Vulkan backend, requested version: %d.%d\n", 
+               requested_version->major, requested_version->minor);
+        
+        
+        uint32_t api_version;
+        vkEnumerateInstanceVersion(&api_version);
+        
+        
+        uint32_t requested_api = VK_MAKE_VERSION(requested_version->major, 
+                                               requested_version->minor, 0);
+        if (requested_api > api_version) {
+            printf("Requested Vulkan %d.%d not available, using highest supported\n",
+                   requested_version->major, requested_version->minor);
+            requested_api = api_version;
+        }
+        
+        VulkanBackend* backend = (VulkanBackend*)malloc(sizeof(VulkanBackend));
+        if (!backend) return NULL;
+        
+        VkApplicationInfo app_info = {
+            .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+            .pApplicationName = "PlumUI Application",
+            .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
+            .pEngineName = "PlumUI",
+            .engineVersion = VK_MAKE_VERSION(1, 0, 0),
+            .apiVersion = requested_api
+        };
+        
+        
+        const char* extensions[] = {
+            VK_KHR_SURFACE_EXTENSION_NAME,
+    #if defined(VK_USE_PLATFORM_WIN32_KHR)
+            VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+    #elif defined(VK_USE_PLATFORM_XLIB_KHR)
+            VK_KHR_XLIB_SURFACE_EXTENSION_NAME,
+    #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
+            VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME,
+    #endif
+            NULL
+        };
+        
+        uint32_t extension_count = 2; 
+        
+        VkInstanceCreateInfo create_info = {
+            .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+            .pApplicationInfo = &app_info,
+            .enabledExtensionCount = extension_count,
+            .ppEnabledExtensionNames = extensions
+        };
+        
+        if (vkCreateInstance(&create_info, NULL, &backend->instance) != VK_SUCCESS) {
+            fprintf(stderr, "Failed to create Vulkan instance\n");
+            free(backend);
+            return NULL;
+        }
+        
+        
+        uint32_t device_count = 0;
+        vkEnumeratePhysicalDevices(backend->instance, &device_count, NULL);
+        
+        if (device_count == 0) {
+            fprintf(stderr, "No Vulkan devices found\n");
+            vkDestroyInstance(backend->instance, NULL);
+            free(backend);
+            return NULL;
+        }
+        
+        VkPhysicalDevice* devices = malloc(sizeof(VkPhysicalDevice) * device_count);
+        vkEnumeratePhysicalDevices(backend->instance, &device_count, devices);
+        backend->physical_device = devices[0]; 
+        free(devices);
+        
+        
+        float queue_priority = 1.0f;
+        VkDeviceQueueCreateInfo queue_create_info = {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .queueFamilyIndex = 0,
+            .queueCount = 1,
+            .pQueuePriorities = &queue_priority
+        };
+        
+        const char* device_extensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+        
+        VkDeviceCreateInfo device_create_info = {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+            .queueCreateInfoCount = 1,
+            .pQueueCreateInfos = &queue_create_info,
+            .enabledExtensionCount = 1,
+            .ppEnabledExtensionNames = device_extensions
+        };
+        
+        if (vkCreateDevice(backend->physical_device, &device_create_info, 
+                          NULL, &backend->device) != VK_SUCCESS) {
+            fprintf(stderr, "Failed to create Vulkan device\n");
+            vkDestroyInstance(backend->instance, NULL);
+            free(backend);
+            return NULL;
+        }
+        
+        vkGetDeviceQueue(backend->device, 0, 0, &backend->queue);
+        backend->surface = VK_NULL_HANDLE;
+        
+        static const PlumRhiInfo g_vk_info = {
+            PLUM_RHI_VULKAN,
+            "Vulkan",
+            {1, 3},
+            85,
+            is_vulkan_available,
+            create_vulkan,
+            destroy_vulkan
+        };
+        
+        backend->base.info = &g_vk_info;
+        backend->base.version.major = VK_VERSION_MAJOR(api_version);
+        backend->base.version.minor = VK_VERSION_MINOR(api_version);
+        
+        printf("✅ Vulkan backend created successfully: Version %d.%d\n",
+               backend->base.version.major, backend->base.version.minor);
+        
+        return &backend->base;
+    }
+    
+    __attribute__((constructor))
+    static void register_vulkan(void) {
+        static const PlumRhiInfo g_vk_info = {
+            PLUM_RHI_VULKAN,
+            "Vulkan", 
+            {1, 3},
+            85,
+            is_vulkan_available,
+            create_vulkan,
+            destroy_vulkan
+        };
+        plum_rhi_register(&g_vk_info);
+    }    ────────────────────────────
+    📄 rhivulkanbackend.h
+    ────────────────────────────
+    #ifndef PLUM_RHI_VULKAN_BACKEND_H
+    #define PLUM_RHI_VULKAN_BACKEND_H
+    
+    #include "rhi.h"
+    #include "pdk/pdktypes.h"
+    
+    #ifdef __cplusplus
+    extern "C" {
+    #endif
+    
+    
+    #if defined(VK_USE_PLATFORM_XLIB_KHR)
+    VkSurfaceKHR create_vulkan_surface_x11(VkInstance instance, void* window_handle);
+    const char** get_x11_required_extensions(uint32_t* count);
+    VkPhysicalDevice select_x11_physical_device(VkInstance instance);
+    #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
+    VkSurfaceKHR create_vulkan_surface_wayland(VkInstance instance, struct wl_display* display, struct wl_surface* surface);
+    const char** get_wayland_required_extensions(uint32_t* count);
+    VkPhysicalDevice select_wayland_physical_device(VkInstance instance);
+    #elif defined(VK_USE_PLATFORM_WIN32_KHR)
+    VkSurfaceKHR create_vulkan_surface_win32(VkInstance instance, void* window_handle);
+    const char** get_win32_required_extensions(uint32_t* count);
+    VkPhysicalDevice select_win32_physical_device(VkInstance instance);
+    #endif
+    
+    #ifdef __cplusplus
+    }
+    #endif
+    
+    #endif /* PLUM_RHI_VULKAN_BACKEND_H */    ────────────────────────────

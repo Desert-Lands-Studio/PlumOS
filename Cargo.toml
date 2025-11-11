@@ -1,8 +1,18 @@
 [workspace]
 members = [
-    "plum_bootloader",
-    "plum_bootloader/crates/plam",
-    "kernel",
+    "kernel/pmhk",
+    "kernel/pmm",
+    "bootloader",
+    "sdk/lib/plum-hal",
+    "sdk/lib/plum-formats",
+    "sdk/lib/plum-abi",
+    "sdk/lib/ppm-core",
+    "tools/plum-config",
+    "user/servers/ppm-server",
+    "user/utils/ppm/crates/keygen",
+    "user/utils/ppm/crates/cli",
+    "user/utils/ppm/crates/tui",
+    "user/utils/psh",
 ]
 resolver = "2"
 
