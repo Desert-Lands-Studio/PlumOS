@@ -18,3 +18,9 @@
 	path = graphics/Pireon
 	url = git@github.com:Desert-Lands-Studio/Pireon.git
 	branch = main
+[submodule "kernel"]
+	path = kernel
+	url = git@github.com:Desert-Lands-Studio/PlumKernel.git
+[submodule "libpsc"]
+	path = libpsc
+	url = git@github.com:Desert-Lands-Studio/libpsc.git
