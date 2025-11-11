@@ -20,8 +20,6 @@ impl Repository {
     }
 
     pub async fn fetch_index(&self) -> Result<PackageIndex> {
-        // TODO: Implement actual HTTP fetching
-        // For now, return an empty index with current timestamp
         Ok(PackageIndex {
             packages: Vec::new(),
             generated: std::time::SystemTime::now()
@@ -38,7 +36,6 @@ impl Repository {
     }
 
     pub fn find_package(&self, _name: &str, _version: Option<&str>) -> Result<Option<Package>> {
-        // TODO: Implement package lookup
         Ok(None)
     }
 }

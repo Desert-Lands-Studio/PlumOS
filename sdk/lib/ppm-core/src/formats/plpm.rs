@@ -1,19 +1,18 @@
 use serde::{Deserialize, Serialize};
 use crate::{Package, PackageMetadata, Architecture, Channel};
 
-/// Plum Package Manager формат пакета (.plpm)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlpmPackage {
     pub header: PlpmHeader,
     pub metadata: PackageMetadata,
     pub files: Vec<PlpmFile>,
     pub scripts: Option<PlpmScripts>,
-    pub signature: Option<String>, // Changed from Vec<u8> to String
+    pub signature: Option<String>, 
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlpmHeader {
-    pub magic: [u8; 4],  // "PLPM"
+    pub magic: [u8; 4],  
     pub version: u16,
     pub architecture: Architecture,
     pub channel: Channel,

@@ -58,7 +58,7 @@ pub struct BuddyAllocator {
     free_lists: [Mutex<BuddyList>; MAX_ORDER],
     memory_start: usize,
     memory_end: usize,
-    page_size: usize, // ← новое поле
+    page_size: usize, 
     initialized: bool,
 }
 
@@ -69,7 +69,7 @@ impl BuddyAllocator {
             free_lists: [EMPTY; MAX_ORDER],
             memory_start: 0,
             memory_end: 0,
-            page_size: 4096, // временно
+            page_size: 4096, 
             initialized: false,
         }
     }
@@ -201,8 +201,6 @@ impl BuddyAllocator {
 
         let order = log2_ceil(count);
         if 1usize << order < count {
-            // нужно больше, чем 2^order — увеличить
-            // но для простоты пока требуем степень двойки
             return None;
         }
 

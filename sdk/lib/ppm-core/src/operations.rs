@@ -5,7 +5,7 @@ use crate::{
 use std::path::Path;
 use tokio::fs;
 
-const DEFAULT_REPO_URL: &str = "https://repo.plumos.dev";
+const DEFAULT_REPO_URL: &str = "https:
 
 pub async fn load_config() -> Result<Config> {
     let config_path = dirs::config_dir()
@@ -46,7 +46,6 @@ async fn get_repo_manager(config: &Config) -> Result<RepositoryManager> {
         architectures,
     );
     manager.add_repository(repo);
-    // Добавьте другие репозитории из конфига, если реализуете их позже
     Ok(manager)
 }
 
@@ -66,7 +65,6 @@ pub async fn install_package(
     if let Some(pkg) = manager.find_package_across_repos(package_name, version)? {
         if pkg.channel == ch && pkg.architecture == arch {
             println!("📥 Installing {}-{} ({})", pkg.name, pkg.version, pkg.file);
-            // Здесь будет настоящая установка: скачивание, проверка, распаковка
             Ok(())
         } else {
             Err(PpmError::PackageNotFound(format!(
@@ -80,7 +78,6 @@ pub async fn install_package(
 
 pub async fn remove_package(package_name: &str, _force: bool, _config: &Config) -> Result<()> {
     println!("🗑️ Removing package: {}", package_name);
-    // Реальная логика: удаление файлов, запуск post-remove скрипта и т.д.
     Ok(())
 }
 
@@ -94,34 +91,29 @@ pub async fn update_packages(
     if let Some(name) = package_name {
         println!(" Target: {}", name);
     }
-    // Реализация: сравнение версий, обновление
     Ok(())
 }
 
 pub async fn search_packages(query: &str, channel: Option<Channel>, config: &Config) -> Result<()> {
     let ch = channel.unwrap_or(config.channel);
     println!("🔍 Searching for '{}' in {} channel...", query, ch.name());
-    // Реализация: поиск по индексу
     Ok(())
 }
 
 pub async fn show_package_info(package_name: &str, config: &Config) -> Result<()> {
     println!("📄 Showing info for package: {}", package_name);
-    // Получить метаданные из индекса
     Ok(())
 }
 
 pub async fn list_packages(channel: Option<Channel>, config: &Config) -> Result<()> {
     let ch = channel.unwrap_or(config.channel);
     println!("📋 Listing packages in {} channel...", ch.name());
-    // Список установленных пакетов (из /var/lib/ppm/db или подобного)
     Ok(())
 }
 
 pub async fn check_updates(channel: Option<Channel>, config: &Config) -> Result<()> {
     let ch = channel.unwrap_or(config.channel);
     println!("✅ Checking for updates in {} channel...", ch.name());
-    // Сравнить локальные версии с репозиторием
     Ok(())
 }
 
@@ -129,10 +121,8 @@ pub async fn clean_cache(all: bool, config: &Config) -> Result<()> {
     let cache_dir = &config.cache_dir;
     if all {
         println!("🧹 Cleaning entire cache at {}", cache_dir);
-        // Удалить всё в кэше
     } else {
         println!("🧹 Cleaning old cache entries...");
-        // Удалить только устаревшие
     }
     Ok(())
 }

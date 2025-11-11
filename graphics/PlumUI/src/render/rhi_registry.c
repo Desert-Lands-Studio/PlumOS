@@ -191,8 +191,6 @@ PlumRhi* plum_rhi_create_highest_version_for_window(PlumRhiId id, PdkWindow* win
     }
     if (!best_info || !best_info->create) return NULL;
 
-    // Проверяем, поддерживает ли бэкенд создание с окном
-    // Для этого кастим create как PlumRhiCreateForWindowFn
     PlumRhiCreateForWindowFn create_for_window = (PlumRhiCreateForWindowFn)best_info->create;
     PlumRhi* rhi = create_for_window(&max_version, window);
     if (rhi) {

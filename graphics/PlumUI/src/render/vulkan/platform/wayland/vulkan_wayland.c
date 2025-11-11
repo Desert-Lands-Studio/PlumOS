@@ -64,7 +64,6 @@ VkPhysicalDevice select_wayland_physical_device(VkInstance instance) {
     VkPhysicalDevice* devices = malloc(sizeof(VkPhysicalDevice) * device_count);
     vkEnumeratePhysicalDevices(instance, &device_count, devices);
 
-    // Простой выбор первого устройства, поддерживающего графику
     for (uint32_t i = 0; i < device_count; ++i) {
         uint32_t queue_family_count = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(devices[i], &queue_family_count, NULL);

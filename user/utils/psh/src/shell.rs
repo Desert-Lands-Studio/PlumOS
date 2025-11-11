@@ -93,7 +93,6 @@ impl Shell {
                     return Ok(true);
                 }
 
-                // Внешняя команда (host only)
                 #[cfg(not(target_os = "none"))]
                 {
                     use std::process::Command;

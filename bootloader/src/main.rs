@@ -8,7 +8,6 @@ mod features;
 use core::fmt::Write;
 use core::ptr;
 
-// === Архитектурно-условные импорты PLAM ===
 #[cfg(target_arch = "x86_64")]
 use plum_formats::plam::{PlamHeader, PLAM_MAGIC, PLAM_CPU_X86_64};
 #[cfg(target_arch = "aarch64")]
@@ -16,7 +15,6 @@ use plum_formats::plam::{PlamHeader, PLAM_MAGIC, PLAM_CPU_ARM64};
 #[cfg(target_arch = "riscv64")]
 use plum_formats::plam::{PlamHeader, PLAM_MAGIC, PLAM_CPU_RISCV64};
 
-// === Зависимости (только для baremetal) ===
 #[cfg(not(feature = "uefi"))]
 use {
     plum_hal::block::{BlockError, init_block_devices, get_block_device_manager, BlockDevice},
@@ -26,7 +24,6 @@ use {
     plum_hal::Uart,
 };
 
-// === Архитектурно-условный UART ===
 #[cfg(target_arch = "x86_64")]
 #[cfg(not(feature = "uefi"))]
 use plum_hal::uart::ns16550::Ns16550Uart as DefaultUart;
@@ -39,7 +36,6 @@ use plum_hal::uart::pl011::Pl011Uart as DefaultUart;
 #[cfg(not(feature = "uefi"))]
 use plum_hal::uart::uart16550::Uart16550 as DefaultUart;
 
-// === Конфигурация UART ===
 #[cfg(target_arch = "aarch64")]
 const UART_BASE: usize = 0x0900_0000;
 
@@ -49,7 +45,6 @@ const UART_BASE: usize = 0x3F8;
 #[cfg(target_arch = "riscv64")]
 const UART_BASE: usize = 0x1000_0000;
 
-// === Глобальный аллокатор (только baremetal) ===
 #[cfg(not(feature = "uefi"))]
 struct EarlyAllocator;
 
@@ -68,25 +63,22 @@ unsafe impl GlobalAlloc for EarlyAllocator {
 #[global_allocator]
 static EARLY_ALLOC: EarlyAllocator = EarlyAllocator;
 
-// === UART (динамическая инициализация, только baremetal) ===
 #[cfg(not(feature = "uefi"))]
 use spin::Once;
 
 #[cfg(not(feature = "uefi"))]
 static UART: Once<Mutex<DefaultUart>> = Once::new();
 
-// === Консольный вывод ===
 pub struct ConsoleWriter;
 impl Write for ConsoleWriter {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         #[cfg(feature = "uefi")]
         {
-            // В UEFI — заглушка. Реализуется в uefi.rs через `uefi::println!`
             Ok(())
         }
         #[cfg(not(feature = "uefi"))]
         {
-            let mut uart = UART.get().expect("UART not initialized").lock(); // ← MUTABLE!
+            let mut uart = UART.get().expect("UART not initialized").lock(); 
             for b in s.bytes() {
                 let _ = uart.putc(b);
             }
@@ -95,7 +87,6 @@ impl Write for ConsoleWriter {
     }
 }
 
-// === Обработчики ошибок ===
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     let mut w = ConsoleWriter;
@@ -111,7 +102,6 @@ fn alloc_error_handler(layout: Layout) -> ! {
     loop {}
 }
 
-// === Инициализация UART (baremetal) ===
 #[cfg(not(feature = "uefi"))]
 fn init_uart() {
     UART.call_once(|| {
@@ -121,7 +111,6 @@ fn init_uart() {
     });
 }
 
-// === Загрузка ядра с диска (baremetal) ===
 #[cfg(not(feature = "uefi"))]
 pub fn load_kernel_from_disk() -> Result<usize, BlockError> {
     let mut w = ConsoleWriter;
@@ -132,7 +121,6 @@ pub fn load_kernel_from_disk() -> Result<usize, BlockError> {
     let _ = write!(&mut w, "bootloader: reading kernel from LBA\n");
 
     const KERNEL_SIZE: usize = 32 * 1024 * 1024;
-    // Используем выделение через STACK_ALLOC вместо rust_alloc::vec!
     let mut buffer = {
         let ptr = STACK_ALLOC
             .lock()
@@ -176,7 +164,6 @@ pub fn load_kernel_from_disk() -> Result<usize, BlockError> {
     Ok(entry)
 }
 
-// === Точка входа ===
 #[no_mangle]
 pub extern "C" fn bootloader_main() -> ! {
     #[cfg(not(feature = "uefi"))]
@@ -206,8 +193,6 @@ pub extern "C" fn bootloader_main() -> ! {
 
     #[cfg(feature = "uefi")]
     {
-        // Реализуется в отдельном файле `src/boot/protocols/uefi.rs`
-        // Здесь — заглушка, чтобы не паниковать
         loop {}
     }
 }

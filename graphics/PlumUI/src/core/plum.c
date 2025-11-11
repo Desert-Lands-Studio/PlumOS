@@ -116,7 +116,6 @@ PLUM_API void plum_select_rhi_version_by_name(const char* backend_name, int majo
     g_plum.requested_version.minor = minor;
 }
 
-// НОВАЯ ФУНКЦИЯ: Создаёт RHI ПОСЛЕ создания окна
 PlumRhi* plum_create_rhi_for_window(PdkWindow* window) {
     if (!window) return NULL;
 

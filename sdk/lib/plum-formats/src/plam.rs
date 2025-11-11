@@ -178,7 +178,6 @@ pub fn load_plam(buffer: &[u8], base: usize) -> Result<usize, &'static str> {
         return Err("PLAM: unsupported version");
     }
 
-    // --- Исправление: Проверка перекрытия без Vec ---
     if header.section_count > 0 {
         let sections = unsafe {
             core::slice::from_raw_parts(
@@ -187,7 +186,6 @@ pub fn load_plam(buffer: &[u8], base: usize) -> Result<usize, &'static str> {
             )
         };
 
-        // Проверяем каждый сегмент со всеми последующими
         for i in 0..sections.len() {
             let sec_a = &sections[i];
             let start_a = base + sec_a.addr as usize;
@@ -211,7 +209,7 @@ pub fn load_plam(buffer: &[u8], base: usize) -> Result<usize, &'static str> {
         let total_reloc_bytes = header.reloc_count as usize * reloc_size;
 
         if reloc_off + total_reloc_bytes > buffer.len() {
-            return Err("PLAM: reloc table out of bounds"); // Лучше вернуть Result, а не паниковать
+            return Err("PLAM: reloc table out of bounds"); 
         }
 
         let relocs = unsafe {
@@ -268,6 +266,5 @@ impl PlamParser {
     }
 
     pub fn load_segments(&self) {
-        // Ключевой: Загрузка сегментов (loadable PT_LOAD). Stub: Предполагаем код после 4096.
     }
 }

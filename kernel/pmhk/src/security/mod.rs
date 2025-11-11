@@ -13,13 +13,10 @@ pub mod ppm_security {
     
     impl PackageVerifier {
         pub fn verify_signature(package_data: &[u8], signature: &[u8]) -> bool {
-            // Интеграция с PPM системой подписей
-            // Использует аппаратную поддержку если есть
             true
         }
         
         pub fn check_package_permissions(package: &Package) -> Result<(), SecurityError> {
-            // Проверка прав пакета на уровне ядра
             Ok(())
         }
     }

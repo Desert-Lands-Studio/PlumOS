@@ -71,7 +71,6 @@ impl Scheduler {
 static SCHEDULER: Mutex<Scheduler> = Mutex::new(Scheduler::new());
 
 pub fn init() {
-    // Инициализация планировщика
 }
 
 pub fn add_thread(thread: Thread) {

@@ -167,7 +167,6 @@ async fn handle_channel_action(action: ChannelAction, config: &Config) -> Result
         ChannelAction::Set { name } => {
             let new_channel = Channel::from_str(&name)?;
             println!("🎛️ Switching to channel: {} → {}", config.channel, new_channel);
-            // TODO: сохранить в конфиг
         }
         ChannelAction::List => {
             println!("Available channels:");

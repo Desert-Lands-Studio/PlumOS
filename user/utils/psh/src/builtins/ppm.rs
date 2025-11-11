@@ -50,28 +50,24 @@ pub async fn handle_ppm_command(args: &[&str]) -> Result<()> {
         }
         "search" | "s" => {
             if let Some(q) = rest.get(0) {
-                // search_packages(query, channel, config)
                 search_packages(q, None, &config).await?;
             }
         }
         "list" | "l" => {
-            // list_packages(channel, config)
             list_packages(None, &config).await?;
         }
         "info" => {
             if let Some(pkg) = rest.get(0) {
-                show_package_info(pkg, &config).await?; // уже принимает 2 аргумента — OK
+                show_package_info(pkg, &config).await?; 
             }
         }
         "channel" | "ch" => {
             handle_channel(rest, &term).await?;
         }
         "check" | "k" => {
-            // check_updates(channel, config)
             check_updates(None, &config).await?;
         }
         "clean" | "c" => {
-            // clean_cache(all, config)
             clean_cache(false, &config).await?;
         }
         _ => {

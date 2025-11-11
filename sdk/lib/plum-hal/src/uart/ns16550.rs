@@ -25,12 +25,12 @@ impl Ns16550Uart {
 
 impl Uart for Ns16550Uart {
     fn init(&mut self) -> HalResult<()> {
-        self.outb(1, 0x00); // Disable interrupts
-        self.outb(3, 0x80); // Enable DLAB
-        self.outb(0, 0x03); // Baud rate divisor low
-        self.outb(1, 0x00); // Baud rate divisor high
-        self.outb(3, 0x03); // 8N1, disable DLAB
-        self.outb(2, 0xC7); // Enable FIFO
+        self.outb(1, 0x00); 
+        self.outb(3, 0x80); 
+        self.outb(0, 0x03); 
+        self.outb(1, 0x00); 
+        self.outb(3, 0x03); 
+        self.outb(2, 0xC7); 
         Ok(())
     }
 

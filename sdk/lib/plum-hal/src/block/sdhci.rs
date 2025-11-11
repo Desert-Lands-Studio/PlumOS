@@ -3,7 +3,6 @@ use core::ptr;
 use core::sync::atomic::{fence, Ordering};
 use log::{info, warn};
 
-// Регистры SDHCI
 const SDHCI_DMA_ADDRESS: usize = 0x00;
 const SDHCI_BLOCK_SIZE: usize = 0x04;
 const SDHCI_BLOCK_COUNT: usize = 0x06;
@@ -21,7 +20,6 @@ const SDHCI_SOFTWARE_RESET: usize = 0x2F;
 const SDHCI_INT_STATUS: usize = 0x30;
 const SDHCI_INT_ENABLE: usize = 0x34;
 
-// Команды SD
 const CMD_GO_IDLE_STATE: u16 = 0;
 const CMD_SEND_IF_COND: u16 = 8;
 const CMD_APP_CMD: u16 = 55;
@@ -37,7 +35,6 @@ const CMD_WRITE_SINGLE_BLOCK: u16 = 24;
 const CMD_WRITE_MULTIPLE_BLOCK: u16 = 25;
 const CMD_STOP_TRANSMISSION: u16 = 12;
 
-// Флаги команд
 const SDHCI_CMD_RESP_NONE: u16 = 0x0000;
 const SDHCI_CMD_RESP_R1: u16 = 0x0010;
 const SDHCI_CMD_RESP_R2: u16 = 0x0018;
@@ -47,19 +44,16 @@ const SDHCI_CMD_CRC_EN: u16 = 0x0008;
 const SDHCI_CMD_INDEX_EN: u16 = 0x0004;
 const SDHCI_CMD_DATA: u16 = 0x0020;
 
-// Состояния
 const SDHCI_CMD_INHIBIT: u32 = 1 << 0;
 const SDHCI_DATA_INHIBIT: u32 = 1 << 1;
 const SDHCI_CARD_PRESENT: u32 = 1 << 16;
 
-// Прерывания
 const SDHCI_INT_RESPONSE: u32 = 1 << 0;
 const SDHCI_INT_DATA_END: u32 = 1 << 1;
 const SDHCI_INT_DATA_CRC_ERR: u32 = 1 << 8;
 const SDHCI_INT_DATA_TIMEOUT: u32 = 1 << 9;
 const SDHCI_INT_ERROR: u32 = 1 << 15;
 
-// Контроль
 const SDHCI_CTRL_4BITBUS: u8 = 0x02;
 const SDHCI_CLOCK_INT_EN: u16 = 1 << 0;
 const SDHCI_CLOCK_INT_STABLE: u16 = 1 << 1;
@@ -164,7 +158,6 @@ impl SdhciController {
         for _ in 0..MAX_RETRIES {
             let int_status = self.read32(SDHCI_INT_STATUS);
             
-            // Детальная обработка ошибок
             if int_status & SDHCI_INT_DATA_CRC_ERR != 0 {
                 return Err("SDHCI data CRC error");
             }
@@ -329,7 +322,6 @@ impl SdhciController {
             return Err("Buffer size must be multiple of 512 bytes");
         }
 
-        // Проверка выравнивания DMA буфера
         if buffer.as_ptr() as usize % 4 != 0 {
             return Err("Buffer must be 4-byte aligned for DMA");
         }

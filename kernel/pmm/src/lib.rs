@@ -8,7 +8,7 @@ pub use allocator::buddy::BuddyAllocator;
 pub use allocator::slab::SlabAllocator;
 pub use arch::Arch;
 
-pub const FALLBACK_MEMORY_REGION: (usize, usize) = (0x4000_0000, 0x800_0000); // 128 MiB
+pub const FALLBACK_MEMORY_REGION: (usize, usize) = (0x4000_0000, 0x800_0000); 
 
 mod mm {
     use super::{BuddyAllocator, SlabAllocator};

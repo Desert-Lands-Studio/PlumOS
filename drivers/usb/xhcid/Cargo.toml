@@ -1,0 +1,10 @@
+[package]
+name = "ps2d"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bitflags = "2.10.0"
+log = "0.4.28"
+orbclient = "0.3.49"
+

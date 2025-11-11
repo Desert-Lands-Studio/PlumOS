@@ -10,13 +10,11 @@ typedef struct {
     PdkWindow* window;  // ← сохраняем окно
 } GLBackend;
 
-// Объявления
 static bool is_opengl_available(void);
 static PlumRhi* create_opengl(const PlumRhiVersion* requested_version);
 static PlumRhi* create_opengl_for_window(const PlumRhiVersion* requested_version, PdkWindow* window);
 static void destroy_opengl(PlumRhi* rhi);
 
-// Информация о бэкенде
 static const PlumRhiInfo g_gl_info = {
     PLUM_RHI_OPENGL,
     "OpenGL",
@@ -27,7 +25,6 @@ static const PlumRhiInfo g_gl_info = {
     destroy_opengl
 };
 
-// Новая функция: создаёт RHI с окном
 static const PlumRhiInfo g_gl_info_for_window = {
     PLUM_RHI_OPENGL,
     "OpenGL",
@@ -38,18 +35,15 @@ static const PlumRhiInfo g_gl_info_for_window = {
     destroy_opengl
 };
 
-// Доступность
 static bool is_opengl_available(void) {
     return true;
 }
 
-// Старая функция (для совместимости, но не используется при нормальном запуске)
 static PlumRhi* create_opengl(const PlumRhiVersion* requested_version) {
     fprintf(stderr, "❌ OpenGL: create_opengl() called without window — this is not supported.\n");
     return NULL;
 }
 
-// ✅ НОВАЯ ОСНОВНАЯ ФУНКЦИЯ
 static PlumRhi* create_opengl_for_window(const PlumRhiVersion* requested_version, PdkWindow* window) {
     if (!window) {
         fprintf(stderr, "❌ OpenGL: PdkWindow is NULL\n");
@@ -90,7 +84,6 @@ static void destroy_opengl(PlumRhi* rhi) {
     free(backend);
 }
 
-// Регистрация
 __attribute__((constructor))
 static void register_opengl(void) {
     plum_rhi_register(&g_gl_info_for_window);  // ← регистрируем версию с поддержкой окна

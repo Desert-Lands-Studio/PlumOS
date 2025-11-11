@@ -32,3 +32,8 @@ panic = "abort"
 [profile.release]
 panic = "abort"
 strip = true
+
+[package.metadata.rustflags]
+aarch64-unknown-none = ["-C", "link-arg=-Tlinkers/aarch64.ld"]
+riscv64-unknown-none = ["-C", "link-arg=-Tlinkers/riscv64.ld"]
+x86_64-unknown-none = ["-C", "link-arg=-Tlinkers/x86_64.ld"]

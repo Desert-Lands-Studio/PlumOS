@@ -42,7 +42,6 @@ impl<T> DerefMut for GuardedGuard<'_, T> {
 
 impl<T> Drop for GuardedGuard<'_, T> {
     fn drop(&mut self) {
-        // release the lock
         self.guarded.lock.unlock();
     }
 }

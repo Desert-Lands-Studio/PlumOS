@@ -167,10 +167,8 @@ fn main() -> io::Result<()> {
                             }
                             KeyCode::Enter => {
                                 if selected_tab == 5 {
-                                    // Actions tab
                                     handle_action(&mut cfg, selected_item, &mut message);
                                 } else if selected_tab == 4 && selected_item == 1 {
-                                    // PLAM flags editing
                                     input_mode = InputMode::Editing;
                                     input_buffer = cfg.plam.flags.join(", ");
                                     current_edit = Some((selected_tab, selected_item));
@@ -223,23 +221,23 @@ fn main() -> io::Result<()> {
 
 fn get_max_items(tab: usize) -> usize {
     match tab {
-        0 => 6, // System: arch, page_size, smp_cores, secure_boot, memory_size, boot_delay
-        1 => 6, // Drivers: usb, wifi, gpu, nvme, audio, bluetooth
-        2 => 5, // Compatibility: posix, win32, darwin, android, linux
-        3 => 4, // Build: mode, optimization, debug_info, lto
-        4 => 3, // PLAM: subsystem, flags, version
-        5 => 3, // Actions: reset, validate, build
+        0 => 6, 
+        1 => 6, 
+        2 => 5, 
+        3 => 4, 
+        4 => 3, 
+        5 => 3, 
         _ => 1,
     }
 }
 
 fn can_edit_directly(tab: usize, item: usize) -> bool {
     matches!((tab, item), 
-        (0, 2) | // SMP Cores
-        (0, 4) | // Memory size
-        (0, 5) | // Boot delay
-        (4, 1) | // PLAM flags
-        (4, 2)   // PLAM version
+        (0, 2) | 
+        (0, 4) | 
+        (0, 5) | 
+        (4, 1) | 
+        (4, 2)   
     )
 }
 
@@ -257,7 +255,7 @@ fn get_current_value(cfg: &PlumConfig, tab: usize, item: usize) -> String {
 fn apply_edit(cfg: &mut PlumConfig, input: &str, current_edit: Option<(usize, usize)>) -> Result<(), &'static str> {
     if let Some((tab, item)) = current_edit {
         match (tab, item) {
-            (0, 2) => { // SMP Cores
+            (0, 2) => { 
                 if let Ok(cores) = input.parse::<usize>() {
                     if cores > 0 && cores <= 256 {
                         cfg.system.smp_cores = cores;
@@ -269,7 +267,7 @@ fn apply_edit(cfg: &mut PlumConfig, input: &str, current_edit: Option<(usize, us
                     Err("Invalid number format")
                 }
             }
-            (0, 4) => { // Memory size
+            (0, 4) => { 
                 if input.ends_with(['K', 'M', 'G']) || input.parse::<u64>().is_ok() {
                     cfg.system.memory_size = input.to_string();
                     Ok(())
@@ -277,7 +275,7 @@ fn apply_edit(cfg: &mut PlumConfig, input: &str, current_edit: Option<(usize, us
                     Err("Memory size must be like '1G', '512M', or number")
                 }
             }
-            (0, 5) => { // Boot delay
+            (0, 5) => { 
                 if let Ok(delay) = input.parse::<u32>() {
                     if delay <= 60 {
                         cfg.system.boot_delay = delay;
@@ -289,14 +287,14 @@ fn apply_edit(cfg: &mut PlumConfig, input: &str, current_edit: Option<(usize, us
                     Err("Invalid number format")
                 }
             }
-            (4, 1) => { // PLAM flags
+            (4, 1) => { 
                 cfg.plam.flags = input.split(',')
                     .map(|s| s.trim().to_string())
                     .filter(|s| !s.is_empty())
                     .collect();
                 Ok(())
             }
-            (4, 2) => { // PLAM version
+            (4, 2) => { 
                 if !input.is_empty() {
                     cfg.plam.version = input.to_string();
                     Ok(())
@@ -313,31 +311,31 @@ fn apply_edit(cfg: &mut PlumConfig, input: &str, current_edit: Option<(usize, us
 
 fn handle_selection(cfg: &mut PlumConfig, tab: usize, item: usize) {
     match (tab, item) {
-        (0, 0) => { // Architecture
+        (0, 0) => { 
             let choices = vec!["prum64", "aarch64", "x86_64", "riscv64"];
             let current_index = choices.iter().position(|&x| x == cfg.system.arch).unwrap_or(0);
             let next_index = (current_index + 1) % choices.len();
             cfg.system.arch = choices[next_index].to_string();
         }
-        (0, 1) => { // Page size
+        (0, 1) => { 
             let choices = vec!["4K", "8K", "16K", "64K"];
             let current_index = choices.iter().position(|&x| x == cfg.system.page_size).unwrap_or(0);
             let next_index = (current_index + 1) % choices.len();
             cfg.system.page_size = choices[next_index].to_string();
         }
-        (3, 0) => { // Build mode
+        (3, 0) => { 
             let choices = vec!["debug", "release", "profile"];
             let current_index = choices.iter().position(|&x| x == cfg.build.mode).unwrap_or(0);
             let next_index = (current_index + 1) % choices.len();
             cfg.build.mode = choices[next_index].to_string();
         }
-        (3, 1) => { // Optimization
+        (3, 1) => { 
             let choices = vec!["none", "speed", "size", "balanced"];
             let current_index = choices.iter().position(|&x| x == cfg.build.optimization).unwrap_or(0);
             let next_index = (current_index + 1) % choices.len();
             cfg.build.optimization = choices[next_index].to_string();
         }
-        (4, 0) => { // Subsystem
+        (4, 0) => { 
             let choices = vec!["native_kernel", "driver", "console_app", "gui_app", "wasm", "firmware"];
             let current_index = choices.iter().position(|&x| x == cfg.plam.subsystem).unwrap_or(0);
             let next_index = (current_index + 1) % choices.len();
@@ -369,18 +367,18 @@ fn handle_toggle(cfg: &mut PlumConfig, tab: usize, item: usize) {
 
 fn handle_action(cfg: &mut PlumConfig, item: usize, message: &mut Option<String>) {
     match item {
-        0 => { // Reset to defaults
+        0 => { 
             *cfg = Default::default();
             *message = Some("Configuration reset to defaults".into());
         }
-        1 => { // Validate configuration
+        1 => { 
             if validate_config(cfg) {
                 *message = Some("✓ Configuration is valid".into());
             } else {
                 *message = Some("⚠ Configuration has issues".into());
             }
         }
-        2 => { // Build system
+        2 => { 
             if build_system(cfg).is_ok() {
                 *message = Some("Build completed successfully!".into());
             } else {
@@ -416,8 +414,6 @@ fn build_system(cfg: &PlumConfig) -> Result<(), Box<dyn std::error::Error>> {
     println!("Architecture: {}", cfg.system.arch);
     println!("Mode: {}", cfg.build.mode);
     
-    // Здесь будет реальная логика сборки
-    // Пока просто имитируем успешную сборку
     Ok(())
 }
 
@@ -425,20 +421,17 @@ fn ui(f: &mut Frame, cfg: &PlumConfig, selected_tab: usize, selected_item: usize
       input_mode: &InputMode, input_buffer: &str, current_edit: Option<(usize, usize)>, message: &Option<String>) {
     let size = f.area();
     
-    // BSD-style blue background
     let background = Block::default().style(Style::default().bg(Color::Blue));
     f.render_widget(background, size);
 
     let main_area = centered_rect(85, 75, size);
     
-    // Main window
     let mut main_block = Block::default()
         .title(" PlumOS Kernel Configuration ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::White))
         .style(Style::default().bg(Color::Blue));
     
-    // Добавляем сообщение в заголовок, если есть
     if let Some(msg) = message {
         main_block = main_block.title(format!(" PlumOS Kernel Configuration - {} ", msg));
     }
@@ -450,13 +443,12 @@ fn ui(f: &mut Frame, cfg: &PlumConfig, selected_tab: usize, selected_item: usize
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3), // Tabs
-            Constraint::Min(12),   // Content
-            Constraint::Length(4), // Help
+            Constraint::Length(3), 
+            Constraint::Min(12),   
+            Constraint::Length(4), 
         ])
         .split(inner_area);
 
-    // Tabs
     let tab_titles = tabs
         .iter()
         .map(|t| {
@@ -477,7 +469,6 @@ fn ui(f: &mut Frame, cfg: &PlumConfig, selected_tab: usize, selected_item: usize
 
     f.render_widget(tabs, chunks[0]);
 
-    // Content
     let content_area = chunks[1];
     match selected_tab {
         0 => render_system_tab(f, cfg, selected_item, content_area, input_mode, input_buffer, current_edit),
@@ -489,7 +480,6 @@ fn ui(f: &mut Frame, cfg: &PlumConfig, selected_tab: usize, selected_item: usize
         _ => {}
     }
 
-    // Help section
     let help_text = match input_mode {
         InputMode::Normal => Line::from(vec![
             Span::styled("←/→", Style::default().fg(Color::Yellow)),
@@ -669,12 +659,10 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
 }
 
 fn save_and_generate(cfg: &PlumConfig, path: &str) -> String {
-    // Валидация конфигурации перед сохранением
     if !validate_config(cfg) {
         return "Error: Configuration validation failed".into();
     }
 
-    // Сохранение TOML конфигурации
     match toml::to_string_pretty(cfg) {
         Ok(toml) => {
             if let Err(e) = fs::write(path, &toml) {
@@ -698,40 +686,34 @@ fn save_and_generate(cfg: &PlumConfig, path: &str) -> String {
         s if s.ends_with('K') => s.trim_end_matches('K').parse::<u64>().unwrap_or(0) * 1024,
         s if s.ends_with('M') => s.trim_end_matches('M').parse::<u64>().unwrap_or(0) * 1024 * 1024,
         s if s.ends_with('G') => s.trim_end_matches('G').parse::<u64>().unwrap_or(0) * 1024 * 1024 * 1024,
-        s => s.parse::<u64>().unwrap_or(512 * 1024 * 1024), // default 512MB
+        s => s.parse::<u64>().unwrap_or(512 * 1024 * 1024), 
     };
 
     let content = format!(
-        "// Auto-generated configuration file\n\
-        // Generated from: {}\n\n\
+        "
         pub mod config {{\n\
         use core::time::Duration;\n\n\
-        // System Configuration\n\
         pub const ARCH: &str = \"{}\";\n\
         pub const PAGE_SIZE: usize = {};\n\
         pub const SMP_CORES: usize = {};\n\
         pub const SECURE_BOOT: bool = {};\n\
         pub const MEMORY_SIZE: u64 = {};\n\
         pub const BOOT_DELAY: Duration = Duration::from_secs({});\n\n\
-        // Driver Configuration\n\
         pub const DRIVER_USB: bool = {};\n\
         pub const DRIVER_WIFI: bool = {};\n\
         pub const DRIVER_GPU: bool = {};\n\
         pub const DRIVER_NVME: bool = {};\n\
         pub const DRIVER_AUDIO: bool = {};\n\
         pub const DRIVER_BLUETOOTH: bool = {};\n\n\
-        // Compatibility Configuration\n\
         pub const ABI_POSIX: bool = {};\n\
         pub const ABI_WIN32: bool = {};\n\
         pub const ABI_DARWIN: bool = {};\n\
         pub const ABI_ANDROID: bool = {};\n\
         pub const ABI_LINUX: bool = {};\n\n\
-        // Build Configuration\n\
         pub const BUILD_MODE: &str = \"{}\";\n\
         pub const BUILD_OPTIMIZATION: &str = \"{}\";\n\
         pub const BUILD_DEBUG_INFO: bool = {};\n\
         pub const BUILD_LTO: bool = {};\n\n\
-        // PLAM Configuration\n\
         pub const PLAM_SUBSYSTEM: &str = \"{}\";\n\
         pub const PLAM_FLAGS: &[&str] = &{:?};\n\
         pub const PLAM_VERSION: &str = \"{}\";\n\
@@ -763,7 +745,6 @@ fn save_and_generate(cfg: &PlumConfig, path: &str) -> String {
         cfg.plam.version
     );
 
-    // Создание директорий если не существуют
     let _ = fs::create_dir_all("kernel/pmhk/src");
     
     match fs::write("kernel/pmhk/src/config.rs", &content) {

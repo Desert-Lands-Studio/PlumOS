@@ -95,7 +95,6 @@ static void demo_main_loop(PlumWindow* window) {
 int main(int argc, char** argv) {  // Исправленная сигнатура main
     printf("=== PlumUI Demo Selector ===\n\n");
     
-    // Парсим аргументы командной строки ДО инициализации
     plum_rhi_parse_args(argc, argv);
     plum_rhi_parse_env();
     

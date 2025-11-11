@@ -14,7 +14,6 @@ pub struct Builtin {
     pub help: &'static str,
 }
 
-// Список встроенных команд
 pub const BUILTINS: &[Builtin] = &[
     Builtin {
         name: "exit",

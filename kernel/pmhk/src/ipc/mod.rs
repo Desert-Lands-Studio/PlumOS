@@ -58,7 +58,6 @@ impl IpcManager {
 static IPC_MANAGER: Mutex<IpcManager> = Mutex::new(IpcManager::new());
 
 pub fn init() {
-    // Инициализация IPC системы
 }
 
 pub fn send(recipient: u64, data: &[u8]) -> Result<(), &'static str> {

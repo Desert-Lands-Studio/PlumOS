@@ -6,7 +6,7 @@ pub enum PpmError {
     Io(#[from] std::io::Error),
     
     #[error("Serialization error: {0}")]
-    Serialization(String), // Changed from serde_json::Error
+    Serialization(String), 
     
     #[error("Signature verification failed: {0}")]
     Signature(#[from] ed25519_dalek::SignatureError),

@@ -120,7 +120,6 @@ impl BlockDeviceManager {
         }
     }
     pub fn get_device_by_name(&mut self, _name: &str) -> Option<&mut BlockDeviceType> {
-        // Исправлено: _name вместо name
         self.devices[0..self.count].iter_mut().find_map(|dev| dev.as_mut())
     }
     pub fn device_count(&self) -> usize {
@@ -191,7 +190,6 @@ pub fn get_block_device_manager() -> spin::MutexGuard<'static, BlockDeviceManage
     BLOCK_DEVICE_MANAGER.lock()
 }
 
-// Утилиты для работы с разделами
 pub mod partition {
     use super::*;
 
@@ -207,7 +205,7 @@ pub mod partition {
     }
 
     #[repr(C, packed)]
-    #[derive(Debug, Copy, Clone)] // Добавлено Copy
+    #[derive(Debug, Copy, Clone)] 
     pub struct Mbr {
         pub bootstrap: [u8; 446],
         pub partitions: [MbrPartition; 4],
@@ -222,7 +220,7 @@ pub mod partition {
             if mbr.signature != 0xAA55 {
                 return Err(BlockError::InvalidParameter);
             }
-            Ok(*mbr) // Теперь можно, т.к. Mbr: Copy
+            Ok(*mbr) 
         }
     }
 

@@ -12,7 +12,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            repository_url: "https://repo.plumos.dev".to_string(),
+            repository_url: "https:
             cache_dir: "/var/cache/ppm".to_string(),
             keyring_dir: "/etc/ppm/keys".to_string(),
             architecture: crate::Architecture::current(),

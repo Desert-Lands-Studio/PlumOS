@@ -11,14 +11,10 @@ static inline uint32_t mmio_read(uint32_t reg) {
 }
 
 void uart_init() {
-    // Отключаем UART перед настройкой
     mmio_write(0x30, 0x00);
-    // Устанавливаем скорость: IBRD = 16 (3.6864 MHz / (16 * 115200) = 2)
     mmio_write(0x24, 0x02);
     mmio_write(0x28, 0x00); // FBRD = 0
-    // 8N1, FIFO включены
     mmio_write(0x2C, (1 << 4) | (3 << 5)); // LCR_H
-    // Включаем UART, TX, RX
     mmio_write(0x30, (1 << 0) | (1 << 8) | (1 << 9)); // CR
 }
 

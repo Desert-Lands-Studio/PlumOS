@@ -22,7 +22,6 @@ static void entry_on_event(PlumWidget* self, const PlumEvent* event) {
         plum_widget_update(self);
     }
     else if (event->type == PLUM_EVENT_KEY_PRESS && entry->has_focus) {
-        // Обработка ввода текста
         if (event->data.key.key >= 32 && event->data.key.key <= 126) {
             char ch = (char)event->data.key.key;
             
@@ -66,7 +65,6 @@ PLUM_API PlumEntry* plum_entry_new(void) {
     entry->base.paint = entry_paint;
     entry->base.on_event = entry_on_event;
     
-    // Размер по умолчанию для поля ввода
     entry->base.width = 120;
     entry->base.height = 25;
 
