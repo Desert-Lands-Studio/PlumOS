@@ -1,74 +1,57 @@
-# === Главный Makefile PlumOS ===
-.PHONY: all clean help \
-        build-bootloader build-kernel build-sdk build-tools build-user \
-        image-aarch64 image-x86_64-bios image-x86_64-uefi \
-        run-qemu-aarch64 run-qemu-x86_64-bios run-qemu-x86_64-uefi
+ROOT_DIR := $(CURDIR)
 
-# === Подцели ===
-build-bootloader:
-	$(MAKE) -C bootloader
+# Подключаем модули
+include $(ROOT_DIR)/mk/config.mk
+include $(ROOT_DIR)/mk/depends.mk
 
-build-kernel:
-	$(MAKE) -C kernel
+.PHONY: all clean rebuild help \
+        image live run debug
 
-build-sdk:
-	$(MAKE) -C sdk
+all: $(IMAGE)
 
-build-tools:
+image: $(IMAGE)
+live: $(LIVE_ISO)
+
+run: $(IMAGE)
+	$(MAKE) -f $(ROOT_DIR)/mk/qemu.mk run-qemu
+
+debug: $(IMAGE)
+	$(MAKE) -f $(ROOT_DIR)/mk/qemu.mk debug-qemu
+
+$(BOOTLOADER_BIN):
+	$(MAKE) -C bootloader build-$(ARCH)
+
+$(KERNEL_PLAM): $(MKPLAM_TOOL)
+	$(MAKE) -C kernel KERNEL_TARGET=$(TARGET_TRIPLE) KERNEL_OUTPUT=$@
+
+$(MKPLAM_TOOL):
 	$(MAKE) -C tools
 
-build-user:
-	$(MAKE) -C user
+include $(ROOT_DIR)/mk/disk.mk
 
-# === Сборка всего ===
-all: build-sdk build-bootloader build-kernel build-tools build-user
-
-# === Образы ===
-image-aarch64:
-	$(MAKE) -C bootloader image-aarch64
-
-image-x86_64-bios:
-	$(MAKE) -C bootloader image-x86_64-bios
-
-image-x86_64-uefi:
-	$(MAKE) -C bootloader image-x86_64-uefi
-
-# === Запуск ===
-run-qemu-aarch64:
-	$(MAKE) -C bootloader run-qemu-aarch64
-
-run-qemu-x86_64-bios:
-	$(MAKE) -C bootloader run-qemu-x86_64-bios
-
-run-qemu-x86_64-uefi:
-	$(MAKE) -C bootloader run-qemu-x86_64-uefi
-
-# === Очистка ===
 clean:
 	$(MAKE) -C bootloader clean
 	$(MAKE) -C kernel clean
-	$(MAKE) -C sdk clean
 	$(MAKE) -C tools clean
-	$(MAKE) -C user clean
-	rm -rf target build/output
+	rm -rf $(OUTPUT_DIR) $(BUILD_DIR)
+
+rebuild: clean all
 
 help:
-	@echo "PlumOS Modular Build System"
+	@echo "PlumOS Build System (Multi-Arch)"
+	@echo ""
+	@echo "Usage: make [target] ARCH=[x86_64|aarch64|riscv64]"
 	@echo ""
 	@echo "Targets:"
-	@echo "  all                      – Build all components"
-	@echo "  build-bootloader         – Build all bootloaders"
-	@echo "  build-kernel             – Build kernel (pmhk + pmm)"
-	@echo "  build-sdk                – Build PlumOS SDK"
-	@echo "  build-tools              – Build tools (mkplam, etc.)"
-	@echo "  build-user               – Build user apps (psh, ppm)"
+	@echo "  all             — build image (default)"
+	@echo "  image           — build raw disk image"
+	@echo "  live            — build UEFI Live ISO"
+	@echo "  run             — run in QEMU"
+	@echo "  debug           — run in QEMU with GDB stub (-s -S)"
+	@echo "  clean           — clean all outputs"
+	@echo "  rebuild         — full rebuild"
 	@echo ""
-	@echo "  image-aarch64            – Create AArch64 disk image"
-	@echo "  image-x86_64-bios        – Create x86_64 BIOS image"
-	@echo "  image-x86_64-uefi        – Create x86_64 UEFI image"
-	@echo ""
-	@echo "  run-qemu-aarch64         – Run AArch64 in QEMU"
-	@echo "  run-qemu-x86_64-bios     – Run x86_64 BIOS in QEMU"
-	@echo "  run-qemu-x86_64-uefi     – Run x86_64 UEFI in QEMU"
-	@echo ""
-	@echo "  clean                    – Clean all build artifacts"
+	@echo "Examples:"
+	@echo "  make ARCH=x86_64 all"
+	@echo "  make ARCH=aarch64 run"
+	@echo "  make ARCH=x86_64 debug"

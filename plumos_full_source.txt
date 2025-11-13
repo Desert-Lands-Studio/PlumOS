@@ -1250,6 +1250,8 @@
 📁 bootmenu
     📄 Cargo.toml
     [binary file skipped]
+📁 build
+    📁 output
 📄 Cargo.toml
 ────────────────────────────
 [workspace]
@@ -1408,7 +1410,6 @@ panic = "abort"
         aarch64-unknown-none = ["-C", "link-arg=-Tlinkers/aarch64.ld"]
         riscv64-unknown-none = ["-C", "link-arg=-Tlinkers/riscv64.ld"]
         x86_64-unknown-none = ["-C", "link-arg=-Tlinkers/x86_64.ld"]        ────────────────────────────
-        📁 drivers
         📁 linkers
             📄 aarch64.ld
             ────────────────────────────
@@ -1612,17 +1613,6 @@ panic = "abort"
                     let fallback = [(0x100000, 0x800_0000)];
                     pmm::init_buddy(&fallback, crate::config::config::PAGE_SIZE);
                 }                ────────────────────────────
-                📁 riscv64
-                    📁 boot
-                    📁 drivers
-                    📁 hal
-                    📁 mmu
-                📁 x86_64
-                    📁 boot
-                    📁 cpu
-                    📁 drivers
-                    📁 hal
-                    📁 mmu
             📄 config.rs
             ────────────────────────────
             pub mod config {
@@ -1643,7 +1633,6 @@ panic = "abort"
             pub const PLAM_FLAGS: &[&str] = &[];
             }
             ────────────────────────────
-            📁 device
             📄 devicetree.rs
             ────────────────────────────
             use core::ffi::{c_char, CStr};
@@ -2773,238 +2762,178 @@ panic = "abort"
             
             pub struct Inode;
             pub struct Socket;            ────────────────────────────
-    📁 psched
 📁 libpsc
-    📁 libp
-        📁 include
-            📁 plum
-                📄 alloc.h
-                ────────────────────────────
-                #pragma once
-                #include <stddef.h>
-                #include <stdint.h>
-                
-                
-                void* pl_malloc(size_t size);
-                void pl_free(void* ptr);
-                void* pl_calloc(size_t num, size_t size);
-                void* pl_realloc(void* ptr, size_t size);
-                
-                
-                typedef struct pl_region pl_region_t;
-                pl_region_t* pl_region_create(size_t size);
-                void pl_region_destroy(pl_region_t* region);
-                void* pl_region_alloc(pl_region_t* region, size_t size);
-                void pl_region_reset(pl_region_t* region);                ────────────────────────────
-                📄 region.h
-                [binary file skipped]
-        📁 src
-            📁 alloc
-                📄 mod.rs
-                [binary file skipped]
-                📄 region.c
-                ────────────────────────────
-                #include <plum/alloc.h>
-                #include <plum/syscalls.h>
-                
-                struct pl_region {
-                    void*  start;
-                    size_t size;
-                    size_t used;
-                    pl_region_t* next;
-                };
-                
-                pl_region_t* pl_region_create(size_t size) {
-                    void* memory = pl_syscall_mmap(NULL, size, PROT_READ | PROT_WRITE, 
-                                                   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-                    if (memory == MAP_FAILED) return NULL;
-                
-                    pl_region_t* region = (pl_region_t*)memory;
-                    region->start = memory;
-                    region->size = size;
-                    region->used = sizeof(pl_region_t);
-                    region->next = NULL;
-                    return region;
-                }
-                
-                void* pl_region_alloc(pl_region_t* region, size_t size) {
-                    size = (size + 7) & ~7;
-                    if (region->used + size <= region->size) {
-                        void* ptr = (void*)((uintptr_t)region->start + region->used);
-                        region->used += size;
-                        return ptr;
-                    }
-                    return NULL;
-                }                ────────────────────────────
-                📄 slab.c
-                [binary file skipped]
-    📁 libpc
-        📁 include
-            📄 stdlib.h
-            [binary file skipped]
-        📁 src
-            📁 alloc
-                📄 malloc.c
-                ────────────────────────────
-                #include <stdlib.h>
-                #include <plum/alloc.h>
-                
-                
-                void* malloc(size_t size) {
-                    return pl_malloc(size);
-                }
-                
-                void free(void* ptr) {
-                    pl_free(ptr);
-                }
-                
-                void* calloc(size_t num, size_t size) {
-                    return pl_calloc(num, size);
-                }
-                
-                void* realloc(void* ptr, size_t size) {
-                    return pl_realloc(ptr, size);
-                }                ────────────────────────────
-                📄 mod.rs
-                [binary file skipped]
-    📁 libpr
-        📁 src
-            📁 alloc
-                📄 global.rs
-                ────────────────────────────
-                use core::alloc::{GlobalAlloc, Layout};
-                
-                pub struct PlumAllocator;
-                
-                unsafe impl GlobalAlloc for PlumAllocator {
-                    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-                        
-                        extern "C" {
-                            fn pl_malloc(size: usize) -> *mut u8;
-                        }
-                        pl_malloc(layout.size())
-                    }
-                
-                    unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
-                        extern "C" {
-                            fn pl_free(ptr: *mut u8);
-                        }
-                        pl_free(ptr)
-                    }
-                }
-                
-                #[global_allocator]
-                static GLOBAL: PlumAllocator = PlumAllocator;                ────────────────────────────
-                📄 mod.rs
-                [binary file skipped]
-                📄 region.rs
-                ────────────────────────────
-                pub struct Region {
-                    
-                }
-                
-                impl Region {
-                    pub fn new(size: usize) -> Option<Self> {
-                        unsafe {
-                            extern "C" {
-                                fn pl_region_create(size: usize) -> *mut c_void;
-                            }
-                            let region = pl_region_create(size);
-                            if region.is_null() {
-                                None
-                            } else {
-                                Some(Region { inner: region })
-                            }
-                        }
-                    }
-                
-                    pub fn alloc<T>(&mut self) -> Option<&mut T> {
-                    }
-                }                ────────────────────────────
-    📁 win32
+    📄 README.md
+    ────────────────────────────
+    # libpsc    ────────────────────────────
 📄 Makefile
 ────────────────────────────
-# === Главный Makefile PlumOS ===
-.PHONY: all clean help \
-        build-bootloader build-kernel build-sdk build-tools build-user \
-        image-aarch64 image-x86_64-bios image-x86_64-uefi \
-        run-qemu-aarch64 run-qemu-x86_64-bios run-qemu-x86_64-uefi
+ROOT_DIR := $(CURDIR)
 
-# === Подцели ===
-build-bootloader:
-	$(MAKE) -C bootloader
+# Подключаем модули
+include $(ROOT_DIR)/mk/config.mk
+include $(ROOT_DIR)/mk/depends.mk
 
-build-kernel:
-	$(MAKE) -C kernel
+.PHONY: all clean rebuild help \
+        image live run debug
 
-build-sdk:
-	$(MAKE) -C sdk
+all: $(IMAGE)
 
-build-tools:
+image: $(IMAGE)
+live: $(LIVE_ISO)
+
+run: $(IMAGE)
+	$(MAKE) -f $(ROOT_DIR)/mk/qemu.mk run-qemu
+
+debug: $(IMAGE)
+	$(MAKE) -f $(ROOT_DIR)/mk/qemu.mk debug-qemu
+
+$(BOOTLOADER_BIN):
+	$(MAKE) -C bootloader build-$(ARCH)
+
+$(KERNEL_PLAM): $(MKPLAM_TOOL)
+	$(MAKE) -C kernel KERNEL_TARGET=$(TARGET_TRIPLE) KERNEL_OUTPUT=$@
+
+$(MKPLAM_TOOL):
 	$(MAKE) -C tools
 
-build-user:
-	$(MAKE) -C user
+include $(ROOT_DIR)/mk/disk.mk
 
-# === Сборка всего ===
-all: build-sdk build-bootloader build-kernel build-tools build-user
-
-# === Образы ===
-image-aarch64:
-	$(MAKE) -C bootloader image-aarch64
-
-image-x86_64-bios:
-	$(MAKE) -C bootloader image-x86_64-bios
-
-image-x86_64-uefi:
-	$(MAKE) -C bootloader image-x86_64-uefi
-
-# === Запуск ===
-run-qemu-aarch64:
-	$(MAKE) -C bootloader run-qemu-aarch64
-
-run-qemu-x86_64-bios:
-	$(MAKE) -C bootloader run-qemu-x86_64-bios
-
-run-qemu-x86_64-uefi:
-	$(MAKE) -C bootloader run-qemu-x86_64-uefi
-
-# === Очистка ===
 clean:
 	$(MAKE) -C bootloader clean
 	$(MAKE) -C kernel clean
-	$(MAKE) -C sdk clean
 	$(MAKE) -C tools clean
-	$(MAKE) -C user clean
-	rm -rf target build/output
+	rm -rf $(OUTPUT_DIR) $(BUILD_DIR)
+
+rebuild: clean all
 
 help:
-	@echo "PlumOS Modular Build System"
+	@echo "PlumOS Build System (Multi-Arch)"
+	@echo ""
+	@echo "Usage: make [target] ARCH=[x86_64|aarch64|riscv64]"
 	@echo ""
 	@echo "Targets:"
-	@echo "  all                      – Build all components"
-	@echo "  build-bootloader         – Build all bootloaders"
-	@echo "  build-kernel             – Build kernel (pmhk + pmm)"
-	@echo "  build-sdk                – Build PlumOS SDK"
-	@echo "  build-tools              – Build tools (mkplam, etc.)"
-	@echo "  build-user               – Build user apps (psh, ppm)"
+	@echo "  all             — build image (default)"
+	@echo "  image           — build raw disk image"
+	@echo "  live            — build UEFI Live ISO"
+	@echo "  run             — run in QEMU"
+	@echo "  debug           — run in QEMU with GDB stub (-s -S)"
+	@echo "  clean           — clean all outputs"
+	@echo "  rebuild         — full rebuild"
 	@echo ""
-	@echo "  image-aarch64            – Create AArch64 disk image"
-	@echo "  image-x86_64-bios        – Create x86_64 BIOS image"
-	@echo "  image-x86_64-uefi        – Create x86_64 UEFI image"
-	@echo ""
-	@echo "  run-qemu-aarch64         – Run AArch64 in QEMU"
-	@echo "  run-qemu-x86_64-bios     – Run x86_64 BIOS in QEMU"
-	@echo "  run-qemu-x86_64-uefi     – Run x86_64 UEFI in QEMU"
-	@echo ""
-	@echo "  clean                    – Clean all build artifacts"────────────────────────────
+	@echo "Examples:"
+	@echo "  make ARCH=x86_64 all"
+	@echo "  make ARCH=aarch64 run"
+	@echo "  make ARCH=x86_64 debug"────────────────────────────
 📁 mk
     📄 ci.mk
     [binary file skipped]
     📄 config.mk
-    [binary file skipped]
+    ────────────────────────────
+    ROOT_DIR ?= $(CURDIR)
+    
+    ARCH ?= $(shell uname -m)
+    ifeq ($(ARCH),x86_64)
+    	TARGET_TRIPLE := x86_64-unknown-none
+    	QEMU_SYSTEM := qemu-system-x86_64
+    else ifeq ($(ARCH),aarch64)
+    	TARGET_TRIPLE := aarch64-unknown-none
+    	QEMU_SYSTEM := qemu-system-aarch64
+    else ifeq ($(ARCH),riscv64)
+    	TARGET_TRIPLE := riscv64-unknown-none
+    	QEMU_SYSTEM := qemu-system-riscv64
+    else
+    $(error Unsupported ARCH: $(ARCH))
+    endif
+    
+    OUTPUT_DIR := $(ROOT_DIR)/build/output
+    BUILD_DIR  := $(ROOT_DIR)/build/$(ARCH)
+    
+    BOOTLOADER_BIN := $(OUTPUT_DIR)/bootloader-$(ARCH).bin
+    KERNEL_PLAM    := $(OUTPUT_DIR)/kernel-$(ARCH).plam
+    MKPLAM_TOOL    := $(ROOT_DIR)/tools/mkplam
+    
+    IMAGE     := $(OUTPUT_DIR)/plumos-$(ARCH).img
+    LIVE_ISO  := $(OUTPUT_DIR)/plumos-$(ARCH)-live.iso
+    
+    $(shell mkdir -p $(OUTPUT_DIR))    ────────────────────────────
+    📄 depends.mk
+    ────────────────────────────
+    ifeq ($(shell command -v rustc 2>/dev/null),)
+    $(error rustc not found — install via https://rustup.rs)
+    endif
+    ifeq ($(shell command -v cargo 2>/dev/null),)
+    $(error cargo not found)
+    endif
+    ifeq ($(ARCH),x86_64)
+    	ifeq ($(shell command -v nasm 2>/dev/null),)
+    	$(error nasm required for x86_64 bootloader)
+    	endif
+    endif
+    ifeq ($(shell command -v mcopy 2>/dev/null),)
+    $(error mtools required for UEFI ISO — install mtools)
+    endif
+    ifeq ($(shell command -v xorriso 2>/dev/null),)
+    $(error xorriso required for ISO — install xorriso)
+    endif    ────────────────────────────
+    📄 disk.mk
+    ────────────────────────────
+    $(IMAGE): $(BOOTLOADER_BIN) $(KERNEL_PLAM)
+    	dd if=/dev/zero of=$@ bs=1M count=64
+    	dd if=$(BOOTLOADER_BIN) of=$@ conv=notrunc
+    	dd if=$(KERNEL_PLAM) of=$@ seek=2048 conv=notrunc
+    
+    $(LIVE_ISO): $(BOOTLOADER_BIN) $(KERNEL_PLAM)
+    	@mkdir -p iso_root/EFI/BOOT
+    	cp $(BOOTLOADER_BIN) iso_root/EFI/BOOT/BOOTX64.EFI
+    	cp $(KERNEL_PLAM) iso_root/kernel.plam
+    	xorriso -as mkisofs \
+    		-quiet \
+    		-iso-level 3 \
+    		-full-iso9660-filenames \
+    		-volid "PLUMOS_UEFI" \
+    		-eltorito-boot /EFI/BOOT/BOOTX64.EFI \
+    		-no-emul-boot \
+    		-boot-load-size 1 \
+    		-boot-info-table \
+    		-efi-boot /EFI/BOOT/BOOTX64.EFI \
+    		-efi-boot-part \
+    		-efi-boot-image \
+    		-o $@ \
+    		iso_root/
+    	@rm -rf iso_root    ────────────────────────────
     📄 qemu.mk
-    [binary file skipped]
+    ────────────────────────────
+    QEMU_COMMON := -serial mon:stdio -m 2G -smp 4
+    
+    ifeq ($(ARCH),x86_64)
+    	QEMU_FLAGS := $(QEMU_COMMON) -M q35 -cpu qemu64
+    	QEMU_DRIVE := -drive format=raw,file=$(IMAGE)
+    	LIVE_FLAGS := -drive format=raw,file=$(LIVE_ISO),if=pflash,readonly=on
+    endif
+    
+    ifeq ($(ARCH),aarch64)
+    	QEMU_FLAGS := $(QEMU_COMMON) -M virt -cpu cortex-a57
+    	QEMU_DRIVE := -drive if=none,file=$(IMAGE),id=hd0 -device virtio-blk-device,drive=hd0
+    	LIVE_FLAGS := -drive if=pflash,format=raw,readonly=on,file=$(LIVE_ISO)
+    endif
+    
+    ifeq ($(ARCH),riscv64)
+    	QEMU_FLAGS := $(QEMU_COMMON) -M virt -cpu rv64
+    	QEMU_DRIVE := -drive if=none,file=$(IMAGE),id=hd0 -device virtio-blk-device,drive=hd0
+    	LIVE_FLAGS := -drive if=pflash,format=raw,readonly=on,file=$(LIVE_ISO)
+    endif
+    
+    run-qemu: $(IMAGE)
+    	$(QEMU_SYSTEM) $(QEMU_FLAGS) $(QEMU_DRIVE)
+    
+    debug-qemu: $(IMAGE)
+    	$(QEMU_SYSTEM) $(QEMU_FLAGS) $(QEMU_DRIVE) -s -S
+    
+    run-live: $(LIVE_ISO)
+    	$(QEMU_SYSTEM) $(QEMU_FLAGS) $(LIVE_FLAGS)
+    
+    .PHONY: run-qemu debug-qemu run-live    ────────────────────────────
 📁 resource
     📁 fonts
         📁 Pixelify_Sans,Quicksand,Roboto,Rubik
@@ -3207,8 +3136,6 @@ help:
                     [binary file skipped]
     📁 icons
     📁 images
-        📄 df.svg
-        [binary file skipped]
         📄 PlumbearText.bmp
         ────────────────────────────
         BMn�     �   |   �  !        �� K,  K,            �  �  �      �BGRs���(Q���333fff&fff���	=

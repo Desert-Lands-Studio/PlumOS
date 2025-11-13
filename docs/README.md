@@ -93,23 +93,25 @@
 ## 🎯 Roadmap / Milestones
 
 ### 🔴 P0 — Критически важные
+
 - ELF-загрузчик → запуск `.plam` приложений
 - Виртуальная память → изоляция ядра и пользователя
 - Прерывания (IRQ) → PS/2 по прерыванию, таймер
 
 ### 🟠 P1 — Важные
+
 - Полноценный `psh` (`ls`, `cat`, `ppm install`)
 - FAT32 RW → для `/boot`, `/home`
 - MBR/GPT парсер → чтение разделов
 
 ### 🟢 P2 — Улучшения
+
 - procfs / tmpfs
 - RTC драйвер
 - GUI (PlumUI)
 - Сетевой стек
 
 ---
-
 
 🌍 PlumBear Ecosystem
 
@@ -122,10 +124,10 @@ I create tools, apps, and libraries — building the PlumBear Ecosystem 🪶.
 🧰 Modular Bootloader — Supports .elf, .pe, .coff, .mach-o, .plam
 
 🚀 Future Roadmap
-Feature	Description
-Pireon Render API	Next-gen rendering layer
-PlumUI APU Framework	Advanced UI & application system
-PlumEngine	Engine for games, apps, websites
-PlumStore	Ecosystem marketplace
-Otrix Language	Modern language blending low/mid/high levels
-Prum64 Architecture	Native architecture for PlumOS & Otrix
+Feature Description
+Pireon Render API Next-gen rendering layer
+PlumUI APU Framework Advanced UI & application system
+PlumEngine Engine for games, apps, websites
+PlumStoreEcosystem marketplace
+Otrix Language Modern language blending low/mid/high levels
+Prum64 Architecture Native architecture for PlumOS & Otrix
